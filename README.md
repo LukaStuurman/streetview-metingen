@@ -1,6 +1,6 @@
 # Streetview Metingen — Windows, Google Maps + AHN DTM/DSM
 
-**Versie 0.5.0.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
+**Versie 0.6.0.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
 
 ## Eenvoudig beginnen (zonder iframe-code)
 
@@ -15,6 +15,33 @@
 7. Bij **Navigeren** worden bestaande meetpunten gewist; controleer na draaien, zoomen of verplaatsen de camerakalibratie opnieuw. Exporteer je meetpunten desgewenst naar CSV.
 
 **Als de ingebouwde Google Maps-website door Google of het netwerk wordt geblokkeerd:** klik op **Alternatief: Google-insluitlink gebruiken**. Open in je reguliere browser Google Maps Street View, kies **Delen → Een kaart insluiten → HTML kopiëren**, plak die HTML en gebruik **Originele Street View tonen**. Deze optie blijft bestaan.
+
+## Triangulatie met meerdere naastgelegen Street View-opnamen (v0.6.0)
+
+Een enkele Street View-kijkstraal bepaalt geen objectdiepte. Met twee of meer **verschillende camerastandpunten**, gericht op **precies hetzelfde herkenbare punt**, kun je de horizontale positie wél schatten via de snijding van kijkrichtingen. Deze modus gebruikt **de camera-locaties en de X/Y-richting van de aangeklikte pixels**, niet het eerste AHN-snijpunt; voor X/Y is camerahoogte niet nodig.
+
+1. Ga via **Google Maps in dit programma** naar het eerste Street View-standpunt. Controleer coördinaten, camerakijkrichting, kijkhoek en zoom.
+2. Klik **Nieuw triangulatiedoel**. Klik daarna **Meetpunten zetten** en klik **exact hetzelfde objectdetail** dat je later opnieuw zult aanwijzen (bijvoorbeeld één lantaarnpaalvoet).
+3. De app slaat de waarneming op en schakelt terug naar **Navigeren**, zonder de eerder verzamelde triangulatie-kijkstralen weg te gooien.
+4. Gebruik in de gewone Google Maps Street View-weergave de navigatiepijlen om een **andere opnamelocatie, bij voorkeur minstens 5–10 meter verderop**, te kiezen. Draai de camera terug naar hetzelfde objectdetail en controleer de cameragegevens.
+5. Klik opnieuw op **Meetpunten zetten** en klik hetzelfde objectdetail. Zodra er twee bruikbare, niet-parallelle kijklijnen zijn, verschijnen **indicatieve RD X/Y (EPSG:28992)** en geografische coördinaten.
+6. Herhaal voor een derde of vierde panorama. De app past een kleinste-kwadratenoplossing toe op de horizontale kijklijnen. Bekijk **camerabasis, snijhoek, restfout** en een geïllustreerde gevoeligheid voor **1 graad kijkrichtingsfout**; dit is géén statistisch betrouwbaarheidsinterval.
+7. Export met **Triangulatie CSV**. **Laatste kijkstraal wissen** corrigeert een foutieve observatie; **Triangulatie afsluiten** bewaart het resultaat maar stopt het toevoegen van waarnemingen.
+
+**Beperkingen:** zonder Maps Platform API-sleutel kan de app niet automatisch alle naastgelegen panorama's doorzoeken of zelf hetzelfde punt in hun foto's herkennen. Google publiceert een `StreetViewService` en `StreetViewPanoramaData.links` daarvoor uitsluitend als ondersteunde Maps JavaScript API. De bestaande keyless browser geeft niet altijd een exacte camerapositie of kijkrichting in de URL door. Daarom is dit **handmatig begeleide multi-view-triangulatie**, geen volautomatische fotogrammetrie. Ga niet uit van decimeter- of centimeterprecisie: gebruik dit niet voor werkelijke kabelposities, ontwerp/uitzetting of kadastrale grenzen.
+
+### Hoogte van Google Street View-camera's in Nederland
+
+Er bestaat **geen verifieerbare, voor alle Nederlandse Street View-auto's geldige vaste camerahoogte**. Google bevestigt dat het een camerasysteem op het dak van auto's gebruikt en ook andere opnameplatforms kent; het geeft geen uniforme meetwaarde voor alle beelden op deze site.
+
+In een onderzoek naar stedelijke bomen werd **2,5 meter panoramacamerahoogte** aangenomen voor Google Street View. Ander onderzoek naar straatbeeldgeometrie gebruikt eveneens **2,5 meter als onderzoeksaanname** en vergelijkt 2,0–3,0 meter. Daarom is de standaard in de app **2,5 m boven lokaal maaiveld**, **zelf aanpasbaar**. Gebruik niet zonder controle de auto-standaard voor een Trekker, fiets, handcamera of afwijkende panoramaview.
+
+- Bron: [Google — How Street View works](https://www.google.com/streetview/how-it-works/)
+- Bron: [Google Maps — Street View Service (panorama's en links)](https://developers.google.com/maps/documentation/javascript/streetview)
+- Bron: [Automated urban tree survey using ... Google Street View images (2022)](https://www.tandfonline.com/doi/full/10.1080/22797254.2022.2162441)
+- Bron: [UrbanVGGT — Camera Height Sensitivity (2026)](https://arxiv.org/abs/2603.22531)
+
+Bij triangulatie zijn **X/Y onafhankelijk van camerahoogte**; alleen de geschatte **Z** gebruikt de richtingshoek, AHN-hoogte bij de camerastandpunten en een aannemelijke camerahoogte. Als AHN ontbreekt, wordt geen Z in NAP berekend.
 
 ## Waarom een ver Street View-punt dichterbij kan worden geplaatst (v0.5.1)
 
@@ -111,6 +138,7 @@ Node.js 20 of nieuwer. De oudere `index.html`-webvariant gebruikt nog steeds de 
 - `src/ahn.mjs`: openbare PDOK AHN WMS GetFeatureInfo met DTM `dtm_05m` / DSM `dsm_05m` en afzonderlijke caches.
 - `src/geometry.mjs`: perspectiefmodel en snijpunt tussen kijkstraal en hoogteoppervlak.
 - `src/rd.mjs`: indicatieve WGS84 → RD New (EPSG:28992), inclusief lokale X/Y per meetpunt.
+- `src/triangulation.mjs`: X/Y-triangulatie met meerdere kijklijnen, camerabasis, restfout en hoekgevoeligheid.
 - `test/*.test.mjs`: camerageometrie, Google Maps-URLs, AHN DTM/DSM, no-data en browser fetch-context.
 - `scripts/smoke-ahn.mjs`: netwerkcontrole van DTM/DSM en browser-CORS.
 
