@@ -30,7 +30,7 @@ try {
         query.searchParams.set("WIDTH","101");query.searchParams.set("HEIGHT","101");
         query.searchParams.set("I","50");query.searchParams.set("J","50");
         query.searchParams.set("BBOX",[centerX-1000,centerY-1000,centerX+1000,centerY+1000].join(","));
-        return query.toString();
+        return query.searchParams.toString();
       })()]
     ];
     for (const [variant, q] of scenarios) {
