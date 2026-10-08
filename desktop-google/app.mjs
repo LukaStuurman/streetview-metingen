@@ -282,7 +282,8 @@ function undo() {
   render();
 }
 function exportCsv() {
-  const lines=[["lijn","punt","breedtegraad","lengtegraad","NAP_hoogte_m","oost_meter","noord_meter"].join(";")];
+  const lines=[["lijn","punt","breedtegraad","lengtegraad","NAP_hoogte_m",
+    "AHN_model","maaiveld_DTM_NAP_m","DSM_min_DTM_m","oost_meter","noord_meter"].join(";")];
   const origin=cameraLocation();
   for(let line=0;line<state.lines.length;line++){
     for(let i=0;i<state.lines[line].length;i++){
@@ -290,7 +291,12 @@ function exportCsv() {
       const loc=offsetLocation(origin,p.e,p.n);
       if(!loc)continue;
       lines.push([line+1,i+1,loc.lat.toFixed(8),loc.lng.toFixed(8),
-        state.useAHN?p.z.toFixed(3):"",p.e.toFixed(3),p.n.toFixed(3)].join(";"));
+        state.useAHN?p.z.toFixed(3):"",
+        state.useAHN?state.surfaceLayer:"vlak",
+        state.useAHN&&Number.isFinite(p.groundZ)?p.groundZ.toFixed(3):
+          state.useAHN&&state.surfaceLayer===AHN_LAYER?p.z.toFixed(3):"",
+        state.useAHN&&Number.isFinite(p.objectHeight)?p.objectHeight.toFixed(3):"",
+        p.e.toFixed(3),p.n.toFixed(3)].join(";"));
     }
   }
   if(lines.length===1)return notice("Plaats eerst meetpunten om te exporteren.",true);
@@ -314,6 +320,10 @@ function showBrowser() {
   resetMeasurements("Google Maps geopend. Kies een Street View-foto in het kaartbeeld.");
   state.display="maps";
   state.loaded=true;
+  // Never reuse coordinates left over from a different previously opened iframe.
+  ui.lat.value="";
+  ui.lng.value="";
+  ui["ahn-status"].textContent="Navigeer eerst naar Street View in Google Maps.";
   ui.viewer.classList.add("loaded","maps-browser");
   const guest=ui["google-browser"];
   if(!guest.getAttribute("src"))guest.setAttribute("src","https://www.google.com/maps");
