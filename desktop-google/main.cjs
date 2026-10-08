@@ -28,17 +28,20 @@ async function launch() {
     }
     return net.fetch(pathToFileURL(file).toString());
   });
-  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-  // Keep Google's own accept/reject selection and cookie jar across sessions.
-  // Do not grant camera, location, notifications, or any other web permission.
+  // Keep Google's actual accept/reject cookie choice in the persistent Maps
+  // guest. The fallback Google iframe uses the default session, so let its
+  // Google consent frame request storage access too, without granting any
+  // media, geolocation, clipboard or other powerful permissions.
   const mapsSession = session.fromPartition("persist:google-maps");
-  mapsSession.setPermissionRequestHandler((contents, permission, callback, details) => {
-    const requester = details?.requestingUrl || contents.getURL();
-    callback(permission === "storage-access" && isGoogleStorageOrigin(requester));
-  });
-  mapsSession.setPermissionCheckHandler((_contents, permission, requestingOrigin) =>
-    permission === "storage-access" && isGoogleStorageOrigin(requestingOrigin)
-  );
+  for (const browserSession of [session.defaultSession, mapsSession]) {
+    browserSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+      const requester = details?.requestingUrl || contents.getURL();
+      callback(permission === "storage-access" && isGoogleStorageOrigin(requester));
+    });
+    browserSession.setPermissionCheckHandler((_contents, permission, requestingOrigin) =>
+      permission === "storage-access" && isGoogleStorageOrigin(requestingOrigin)
+    );
+  }
   const main = new BrowserWindow({
     width: 1530, height: 930, minWidth: 1120, minHeight: 690,
     backgroundColor: "#0b1823", autoHideMenuBar: true,
