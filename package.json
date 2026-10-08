@@ -1,9 +1,9 @@
 {
   "name": "streetview-metingen",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
-  "description": "Google Maps desktop met ingebouwde Street View-browser, AHN DTM/DSM en indicatieve 3D-metingen",
+  "description": "Techbase Street View meetapp met AHN DTM/DSM, lokale XY en RD (EPSG:28992) coördinaten",
   "scripts": {
     "test": "node --test",
     "desktop": "electron .",
@@ -27,6 +27,7 @@
       "desktop-google/**/*",
       "src/ahn.mjs",
       "src/geometry.mjs",
+      "src/rd.mjs",
       "package.json"
     ],
     "win": {
