@@ -2,7 +2,7 @@ name: Windows desktop build (Google embed)
 on:
   push:
     branches:
-      - feat/google-street-view-keyless-desktop
+      - main
   workflow_dispatch:
 jobs:
   windows:
