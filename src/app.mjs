@@ -230,6 +230,7 @@ function attachPanorama() {
   const location = {
     lat: Number(elements.lat.value), lng: Number(elements.lng.value)
   };
+  elements.viewer.classList.add("loaded");
   state.panorama = new google.maps.StreetViewPanorama(elements.panorama, {
     position: location, pov: { heading: 0, pitch: -12 }, zoom: 1,
     fullscreenControl: true, addressControl: true,
