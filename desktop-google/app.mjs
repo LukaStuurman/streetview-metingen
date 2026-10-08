@@ -161,7 +161,8 @@ function captureTriangulation(ray){
   }
   tri.observations.push({
     lat:loc.lat,lng:loc.lng,ray:{e:ray.e,n:ray.n,u:ray.u},
-    cameraZ:Number.isFinite(cameraZ())?cameraZ():null
+    // Only AHN supplies an NAP camera reference; camera height alone is NOT Z in NAP.
+    cameraZ:state.useAHN&&Number.isFinite(state.baseZ)?cameraZ():null
   });
   solveTriangulation();
   // The normal overlay freezes the Google browser. Release it so the user
