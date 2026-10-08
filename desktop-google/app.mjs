@@ -7,6 +7,7 @@ import {
   pointAtHorizontalDistance, rayDepressionDegrees, MAX_GROUND_DISTANCE_M
 } from "../src/geometry.mjs";
 import { pointCoordinates } from "../src/rd.mjs";
+import { triangulatePanoramas } from "../src/triangulation.mjs";
 import {
   parseEmbedHtml, inspectGoogleMapsViewUrl, cameraPoseChanged, viewFromFields
 } from "./measurement-helpers.mjs";
@@ -17,6 +18,7 @@ const ui = Object.fromEntries([
   "maps-url","maps-url-reason","use-iframe","google-browser",
   "lat","lng","heading","pitch","fov","height","camera-sync-status",
   "ahn","ahn-layer","ahn-status","refresh-ahn","point-results",
+  "tri-start","tri-stop","tri-undo","tri-export","tri-results","tri-status",
   "navigate","measure","new-line","undo",
   "clear","export","results","viewer","google-frame","overlay","notice"
 ].map(id => [id, $(id)]));
@@ -27,7 +29,8 @@ const state = {
   loaded:false, mode:"navigate", useAHN:true,
   surfaceLayer:AHN_LAYER, display:"embed",
   baseZ:null, lines:[[]], pending:null, epoch:0, terrainEpoch:0,
-  lastGoogleViewUrl:null, lastGooglePose:null, canRender:false
+  lastGoogleViewUrl:null, lastGooglePose:null, canRender:false,
+  triangulation:{active:false,observations:[],result:null}
 };
 
 function notice(text, error=false) {
@@ -67,6 +70,133 @@ function resetMeasurements(reason) {
   state.lines=[[]];
   render();
   if(reason)notice(reason);
+}
+function renderTriangulation() {
+  const tri=state.triangulation;
+  const dest=ui["tri-results"];
+  dest.replaceChildren();
+  const status=tri.result?.status;
+  const count=tri.observations.length;
+  if(!count){
+    ui["tri-status"].textContent=tri.active
+      ? "Doel actief. Ga naar Street View, kies Meetpunten zetten en klik het doelobject."
+      : "Nog geen waarnemingen. Start een doel voor triangulatie.";
+    return;
+  }
+  const info=document.createElement("p");
+  info.className="tri-count";
+  info.textContent=count+" camera-waarneming"+(count===1?"":"en")+" opgeslagen. "+
+    (tri.active?"Navigeer naar een volgende panorama en klik hetzelfde object opnieuw.":"Doel afgesloten.");
+  dest.append(info);
+  if(tri.result?.status==="ok"){
+    const result=tri.result;
+    const fields=[
+      ["RD X",result.point.rd?format(result.point.rd.x,2)+" m":"Buiten RD-gebied"],
+      ["RD Y",result.point.rd?format(result.point.rd.y,2)+" m":"Buiten RD-gebied"],
+      ["Latitude",result.point.lat.toFixed(7)],
+      ["Longitude",result.point.lng.toFixed(7)],
+      ["Max. camerabasis",format(result.baselineM,1)+" m"],
+      ["Snijhoek",format(result.angleDeg,1)+"°"],
+      ["Lijnrestfout RMS",format(result.residualRmsM,2)+" m"],
+      ["Indicatie bij 1° richtingsfout",format(result.sensitivityAtOneDegreeM,1)+" m"],
+      ["Z uit kijklijnen",Number.isFinite(result.point.z)
+        ?format(result.point.z,2)+" m NAP":"Niet beschikbaar"],
+      ["Verschil tussen Z-schattingen",Number.isFinite(result.zSpreadM)
+        ?format(result.zSpreadM,2)+" m":"Niet beschikbaar"],
+      ["Betrouwbaarheid",result.quality==="low"?"Zwakke geometrie / hoge onzekerheid":
+        "Indicatief; niet landmeetkundig betrouwbaar"]
+    ];
+    const table=document.createElement("div");
+    table.className="tri-grid";
+    for(const [label,value] of fields){
+      const wrap=document.createElement("div");wrap.className="tri-pair";
+      const key=document.createElement("span");key.textContent=label;
+      const val=document.createElement("strong");val.textContent=value;
+      wrap.append(key,val);table.append(wrap);
+    }
+    dest.append(table);
+    ui["tri-status"].textContent=result.quality==="low"
+      ? "Triangulatie zwak: vergroot de camerabasis of kies kijklijnen onder een andere hoek."
+      : "Triangulatie berekend uit "+count+" onafhankelijke opnameposities. X/Y zijn indicatief.";
+  }else{
+    ui["tri-status"].textContent=tri.result?.message||
+      "Markeer hetzelfde object vanuit minimaal twee verschillende camera's.";
+  }
+  const list=document.createElement("div");list.className="tri-observations";
+  tri.observations.forEach((observation,index)=>{
+    const item=document.createElement("div");
+    item.textContent=(index+1)+". Camera "+observation.lat.toFixed(6)+", "+
+      observation.lng.toFixed(6)+" · richting "+
+      format((Math.atan2(observation.ray.e,observation.ray.n)*180/Math.PI+360)%360,1)+"°";
+    list.append(item);
+  });
+  dest.append(list);
+}
+function solveTriangulation(){
+  state.triangulation.result=triangulatePanoramas(
+    state.triangulation.observations,{maxRange:MAX_GROUND_DISTANCE_M});
+  renderTriangulation();
+}
+function beginTriangulation(){
+  if(state.mode==="measure")switchMode("navigate");
+  resetMeasurements();
+  state.triangulation={active:true,observations:[],result:null};
+  renderTriangulation();
+  notice("Triangulatie: markeer hetzelfde object vanuit minimaal 2 Street View-posities.");
+}
+function captureTriangulation(ray){
+  const tri=state.triangulation;
+  const loc=cameraLocation();
+  const origin=tri.observations[0];
+  // A second observation from the same panorama adds no depth information.
+  if(origin){
+    for(const obs of tri.observations){
+      const e=(loc.lng-obs.lng)*111412.84*Math.cos(obs.lat*Math.PI/180);
+      const n=(loc.lat-obs.lat)*111132.92;
+      if(Math.hypot(e,n)<2){
+        notice("Kies een ander Street View-standpunt, minimaal 2 m verplaatst (liefst 5–10 m).",true);
+        return;
+      }
+    }
+  }
+  tri.observations.push({
+    lat:loc.lat,lng:loc.lng,ray:{e:ray.e,n:ray.n,u:ray.u},
+    cameraZ:Number.isFinite(cameraZ())?cameraZ():null
+  });
+  solveTriangulation();
+  // The normal overlay freezes the Google browser. Release it so the user
+  // can navigate to the NEXT panorama; retained rays stay in separate state.
+  switchMode("navigate");
+  renderTriangulation();
+  notice("Kijkstraal "+tri.observations.length+
+    " bewaard. Navigeer naar de volgende panorama, zet Meetpunten en klik hetzelfde doelobject.");
+}
+function exportTriangulation(){
+  const tri=state.triangulation, result=tri.result;
+  if(result?.status!=="ok")
+    return notice("Voor export zijn minimaal twee niet-parallelle kijkstralen nodig.",true);
+  const names=["type","index","camera_lat","camera_lng","doel_lat","doel_lng",
+    "RD_X","RD_Y","Z_kijklijnen_NAP","baseline_m","snijhoek_deg","RMS_restfout_m",
+    "gevoeligheid_1deg_m","betrouwbaarheid","bron"];
+  const rows=[names.join(";")];
+  const p=result.point;
+  for(let i=0;i<tri.observations.length;i++){
+    const o=tri.observations[i];
+    rows.push(["triangulatie",i+1,o.lat.toFixed(8),o.lng.toFixed(8),
+      p.lat.toFixed(8),p.lng.toFixed(8),
+      p.rd?p.rd.x.toFixed(2):"",p.rd?p.rd.y.toFixed(2):"",
+      Number.isFinite(p.z)?p.z.toFixed(2):"",
+      result.baselineM.toFixed(2),result.angleDeg.toFixed(2),
+      result.residualRmsM.toFixed(2),result.sensitivityAtOneDegreeM.toFixed(2),
+      result.quality,"handmatige_correspondentie_panorama_kijklijnen"].join(";"));
+  }
+  const blob=new Blob(["\ufeff"+rows.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="techbase-streetview-triangulatie-indicatief.csv";
+  document.body.append(a);a.click();a.remove();
+  window.setTimeout(()=>URL.revokeObjectURL(url),2000);
+  notice("Triangulatiecoördinaten en kwaliteitsparameters geëxporteerd.");
 }
 function summary() {
   const rows=[];
@@ -225,6 +355,7 @@ function render() {
   ctx.setTransform(ratio,0,0,ratio,0,0);
   ctx.clearRect(0,0,rect.width,rect.height);
   summary();
+  renderTriangulation();
   const z=cameraZ();
   if(!state.loaded||!validCalibration()||z===null||!v)return;
   for(let idx=0;idx<state.lines.length;idx++) {
@@ -298,8 +429,10 @@ function switchMode(target) {
   if(target==="measure") {
     if(!state.loaded)return notice("Open eerst Google Street View.",true);
     if(!validCalibration())return notice("Controleer alle cameravelden.",true);
-    if(state.useAHN&&state.baseZ===null)return notice("Wacht tot AHN is geladen of zet AHN uit.",true);
+    if(!state.triangulation.active && state.useAHN&&state.baseZ===null)
+      return notice("Wacht tot AHN is geladen of zet AHN uit.",true);
     if(state.mode!=="measure")resetMeasurements(
+      state.triangulation.active?"Triangulatie: klik het te volgen object aan.":
       state.surfaceLayer===AHN_SURFACE_LAYER && state.useAHN
         ? "Meetbeeld vergrendeld: klik op een zichtbaar dak of bovenvlak. DSM bevat ook bomen."
         : "Meetbeeld vergrendeld. Klik op de grond om punten te plaatsen."
@@ -321,6 +454,7 @@ async function addClick(event) {
   const rect=ui.overlay.getBoundingClientRect();
   const ray=rayFromPixel(event.clientX-rect.left,event.clientY-rect.top,view());
   if(!ray)return notice("Onbekende perspectiefprojectie.",true);
+  if(state.triangulation.active)return captureTriangulation(ray);
   const stamp=state.epoch;
   const original=cameraLocation();
   let point;
@@ -650,6 +784,21 @@ ui.load.addEventListener("click",()=>{
 ui["google-frame"].addEventListener("load",()=>{
   if(state.loaded)notice("Google-frame geopend. Controleer dat je Street View ziet, niet alleen de plattegrond.");
 });
+ui["tri-start"].addEventListener("click",beginTriangulation);
+ui["tri-stop"].addEventListener("click",()=>{
+  state.triangulation.active=false;
+  if(state.mode==="measure")switchMode("navigate");
+  renderTriangulation();
+  notice("Triangulatie afgesloten. Resultaat en CSV blijven beschikbaar.");
+});
+ui["tri-undo"].addEventListener("click",()=>{
+  if(state.triangulation.observations.length){
+    state.triangulation.observations.pop();
+    solveTriangulation();
+    notice("Laatste camerawaarneming verwijderd.");
+  }
+});
+ui["tri-export"].addEventListener("click",exportTriangulation);
 ui.navigate.addEventListener("click",()=>switchMode("navigate"));
 ui.measure.addEventListener("click",()=>switchMode("measure"));
 ui.overlay.addEventListener("click",addClick);
