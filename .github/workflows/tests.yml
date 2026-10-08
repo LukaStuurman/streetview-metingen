@@ -1,0 +1,16 @@
+name: Unit tests
+on:
+  push:
+  pull_request:
+jobs:
+  geometry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm test
+      - name: Check live PDOK AHN (non-blocking)
+        run: node scripts/smoke-ahn.mjs
+        continue-on-error: true
