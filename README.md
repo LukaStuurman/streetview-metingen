@@ -1,6 +1,14 @@
 # Streetview Metingen — Windows, Google Maps + AHN DTM/DSM
 
-**Versie 0.6.1.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
+**Versie 0.6.2.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
+
+## Herstel beeldhoek en vensterformaat (v0.6.2)
+
+De `y`-beeldhoek uit de gewone Google Maps-website werd over de vensterbreedte berekend. Bij vergelijking van herkenbare objecten op verschillende vensterformaten bleek dat deze website de hoogte gebruikt. De app past deze beeldhoek nu verticaal toe, zowel bij klikken als bij het terugtekenen van meetpunten. Officiële `?fov=`-links en handmatige kalibratie gebruiken standaard de horizontale beeldhoek; het veld **Beeldhoek gemeten over** toont welke as actief is.
+
+Vier grondpunten zijn naast Street Smart gelegd. Met vastgelegde Google-klikken en live AHN-hoogtes daalde de berekende horizontale afwijking bij de twee duidelijk herkenbare referentiepunten (boomvoet en rechter paaltje) van 1,14 en 0,93 m naar 0,42 en 0,37 m. Het linker paaltje gaf 1,28 → 0,60 m, maar Street Smart meldde te weinig waarnemingen. De putvergelijking is uitgesloten: te weinig waarnemingen en geen zeker overeenkomstig beeldpunt; de afwijking werd daar niet kleiner. Dit is één locatie, met opnames uit verschillende jaren en een aangenomen camerahoogte van 2,5 m, geen algemene nauwkeurigheidsvalidatie.
+
+65 regressietests controleren onder andere vier vensterformaten met analytisch bepaalde kijkstralen, verticale én horizontale projectie, en de bestaande AHN- en triangulatieberekeningen. Zet eerdere meetpunten opnieuw. De correctie vermindert deze projectiefout; camera-locatie, camerahoogte, AHN-resolutie, klikpositie en opnameverschillen blijven de uitkomst beïnvloeden.
 
 ## Herstel verre meetpunten (v0.6.1)
 
@@ -15,7 +23,7 @@ Tijdelijke oplossing in v0.6.0: keer bij de automatisch ingelezen **Kijkhoek op/
 1. Start de Windows-app en klik op **Open Google Maps in dit programma** (de kaart wordt standaard al geopend).
 2. Zoek je locatie in Google Maps en open een **Street View-foto** via de bekende blauwe lijnen of thumbnails.
 3. Wanneer Google Maps een herkenbare Street View-URL toont, vult de app **breedtegraad, lengtegraad en eventueel kijkrichting** als *voorstel* in. Zo niet, vul ze handmatig in.
-4. Controleer de zichtbare kijkrichting, kijkhoek, **horizontale beeldhoek** en camerahoogte. De app kan de daadwerkelijke Street View-camerastand niet zonder API uitlezen. **Er is geen verplichte bevestigingscheckbox meer**: met geldige cameraparameters en eventueel geladen AHN kun je direct op **Meetpunten zetten** klikken. Controleer zelf of de camerastand nog bij het beeld past.
+4. Controleer de zichtbare kijkrichting, kijkhoek, **beeldhoek en de bijbehorende breedte- of hoogte-as** en camerahoogte. De app kan de daadwerkelijke Street View-camerastand niet zonder API uitlezen. **Er is geen verplichte bevestigingscheckbox meer**: met geldige cameraparameters en eventueel geladen AHN kun je direct op **Meetpunten zetten** klikken. Controleer zelf of de camerastand nog bij het beeld past.
 5. Kies onder **AHN-model** een van de volgende opties:
    - **DTM – maaiveld:** geen gebouwen en bomen; geschikt voor een ruwe grondmeting.
    - **DSM – daken, bomen en objecten:** inschatting op bovenoppervlakken. Als DTM op dezelfde plek beschikbaar is, zie je ook **DSM–DTM** als indicatie voor de hoogte *boven het lokale maaiveld*.
@@ -124,7 +132,7 @@ Gebruik **Diagnose Street View-camerastand** onder Google Maps openen. Daar zie 
 
 Bij de ingebouwde Google Maps-weergave controleert de desktopapp **vier keer per seconde** de zichtbare navigatie-URL van de normale Google Maps-site. De app reageert ook op Electron-navigatiegebeurtenissen.
 
-Als Google in die URL een Street View-camerastand publiceert, worden **breedtegraad, lengtegraad, kijkrichting (heading), hellingshoek (pitch) en horizontale beeldhoek (FOV/zoom)** opnieuw ingevuld. Bij een gewijzigde camerastand worden eventuele oude metingen verwijderd. Daarna kun je direct meten zodra geldige cameragegevens beschikbaar zijn. Bij verplaatsing van het panorama wordt de AHN-maaiveldhoogte opnieuw opgevraagd; bij alleen draaien/zoomen gebeurt geen onnodige AHN-netwerkaanvraag.
+Als Google in die URL een Street View-camerastand publiceert, worden **breedtegraad, lengtegraad, kijkrichting (heading), hellingshoek (pitch), beeldhoek (FOV/zoom) en de beeldhoek-as** opnieuw ingevuld. Bij een gewijzigde camerastand worden eventuele oude metingen verwijderd. Daarna kun je direct meten zodra geldige cameragegevens beschikbaar zijn. Bij verplaatsing van het panorama wordt de AHN-maaiveldhoogte opnieuw opgevraagd; bij alleen draaien/zoomen gebeurt geen onnodige AHN-netwerkaanvraag.
 
 **Beperking: dit is URL-synchronisatie, géén volledige realtime-camera-API.** Google kan tijdens slepen de URL niet veranderen of pas na afloop bijwerken; sommige panoramabewegingen blijven daarom onzichtbaar voor de app. Er is geen ondersteunde manier om zonder Google Maps Platform/Street View API de interne Google Maps-camerastand iedere frame uit te lezen. De getoonde URL-waarden blijven indicatief. Controleer de uitlijning vóór het meten; daarvoor is geen aparte bevestigingsklik nodig. Google Cloud-vrije Street View via de gewone browser blijft behouden.
 

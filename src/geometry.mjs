@@ -11,10 +11,12 @@ export function horizontalFov(zoom) {
   return 180 / Math.pow(2, zoom);
 }
 
-export function focalPixels(width, zoom) {
+export function focalPixels(width, zoom, height = width, fovAxis = "horizontal") {
   const fov = horizontalFov(zoom);
-  if (!fov || !Number.isFinite(width) || width <= 0) return null;
-  return width / (2 * Math.tan((fov * DEG) / 2));
+  if (!["horizontal", "vertical"].includes(fovAxis)) return null;
+  const extent = fovAxis === "vertical" ? height : width;
+  if (!fov || !Number.isFinite(extent) || extent <= 0) return null;
+  return extent / (2 * Math.tan((fov * DEG) / 2));
 }
 
 function basis(heading, pitch) {
@@ -37,7 +39,7 @@ function dot(a, b) {
 /** Convert a click (CSS pixels, relative to panorama) to a WORLD ray. */
 export function rayFromPixel(x, y, view) {
   const { width, height, heading, pitch, zoom } = view;
-  const f = focalPixels(width, zoom);
+  const f = focalPixels(width, zoom, height, view.fovAxis);
   if (!f || !Number.isFinite(height) || height <= 0) return null;
   const { forward, right, up } = basis(heading, pitch);
   const sx = (x - width / 2) / f;
@@ -64,7 +66,7 @@ export function groundFromRay(ray, cameraHeight, maxDistance = MAX_GROUND_DISTAN
 /** Reproject a local point (east, north, elevation) given camera NAP elevation. */
 export function pixelFromWorld(point, cameraZ, view) {
   const { width, height, heading, pitch, zoom } = view;
-  const f = focalPixels(width, zoom);
+  const f = focalPixels(width, zoom, height, view.fovAxis);
   if (!f || !Number.isFinite(cameraZ) || !point || !Number.isFinite(point.z)) return null;
   const b = basis(heading, pitch);
   const delta = { e: point.e, n: point.n, u: point.z - cameraZ };

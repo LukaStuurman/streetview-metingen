@@ -26,10 +26,11 @@ export function parseEmbedHtml(text) {
 }
 
 /** Perspective estimate; calibration does not read the cross-origin Google iframe. */
-export function viewFromFields({width,height,heading,pitch,fov}) {
+export function viewFromFields({width,height,heading,pitch,fov,fovAxis="horizontal"}) {
   if(![width,height,heading,pitch,fov].every(Number.isFinite)||
+    !["horizontal","vertical"].includes(fovAxis)||
     !(width>0&&height>0&&fov>=10&&fov<=120&&Math.abs(pitch)<=90))return null;
-  return {width,height,heading,pitch,zoom:Math.log2(180/fov)};
+  return {width,height,heading,pitch,zoom:Math.log2(180/fov),fovAxis};
 }
 
 /**
@@ -72,7 +73,10 @@ export function inspectGoogleMapsViewUrl(urlText) {
       // Reversing this sign puts visible distant ground above the computed horizon.
       if(m[2]==="t"&&number>=0&&number<=180)pitch=number-90;
     }
-    return {pose:{lat,lng,heading,pitch,fov},kind:"streetview-path",reason:"Street View-cameragegevens in Google Maps-adres gevonden."};
+    // The Maps website's y value controls VERTICAL FOV, observed by keeping
+    // its pose fixed and comparing landmarks at different viewport aspects.
+    // It is not the horizontal ?fov= of the documented Maps URL API.
+    return {pose:{lat,lng,heading,pitch,fov,fovAxis:"vertical"},kind:"streetview-path",reason:"Street View-cameragegevens in Google Maps-adres gevonden (verticale beeldhoek)."};
   }
 
   // Google's documented Maps URL action, not a private tile/metadata API.
@@ -93,7 +97,7 @@ export function inspectGoogleMapsViewUrl(urlText) {
     const rawHeading=q("heading",-180,360);
     return {
       pose:{lat,lng,heading:rawHeading===null?null:normalizeHeading(rawHeading),
-        pitch:q("pitch",-90,90),fov:q("fov",10,120)},
+        pitch:q("pitch",-90,90),fov:q("fov",10,120),fovAxis:"horizontal"},
       kind:"pano-action",reason:"Google Maps-panoramalink gevonden (de camerastand is niet altijd actueel)."
     };
   }
@@ -111,6 +115,7 @@ export function parseGoogleMapsViewUrl(urlText) {
 export function cameraPoseChanged(previous, next, epsilon = 0.00001) {
   if (!previous || !next) return true;
   const fields = ["lat", "lng", "heading", "pitch", "fov"];
+  if(previous.fovAxis!==next.fovAxis)return true;
   return fields.some(field => {
     if (next[field] == null && previous[field] == null) return false;
     if (next[field] == null || previous[field] == null) return true;

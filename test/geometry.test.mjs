@@ -17,6 +17,33 @@ test("documented Street View zoom-to-horizontal-FOV model", () => {
   approx(focalPixels(800, 1), 400);
 });
 
+test("vertical FOV uses image height and keeps landmark rays stable when width changes",()=>{
+  // A 90-degree vertical camera has focal length h/2. These image locations
+  // are analytically known for a point 2m east, 10m north, 2m below the camera.
+  // Fixtures do not use our forward projection to manufacture the clicks.
+  for(const [width,height] of [[800,600],[1600,600],[1530,1010],[1126,892]]){
+    const camera={width,height,heading:0,pitch:0,zoom:1,fovAxis:"vertical"};
+    approx(focalPixels(width,1,height,"vertical"),height/2);
+    const x=width/2+height/10,y=height/2+height/10;
+    const ray=rayFromPixel(x,y,camera);
+    approx(ray.e/ray.n,0.2);
+    approx(ray.u/ray.n,-0.2);
+    const hit=groundFromRay(ray,2);
+    approx(hit.e,2);approx(hit.n,10);
+    const pixel=pixelFromWorld({e:2,n:10,z:0},2,camera);
+    approx(pixel.x,x);approx(pixel.y,y);
+  }
+});
+
+test("vertical FOV does not replace default horizontal API projection",()=>{
+  const camera={width:1600,height:600,heading:0,pitch:0,zoom:1};
+  approx(focalPixels(1600,1,600),800);
+  const ray=rayFromPixel(960,460,camera);
+  approx(ray.e/ray.n,0.2);approx(ray.u/ray.n,-0.2);
+  assert.equal(focalPixels(1600,1,600,"unknown"),null);
+  assert.equal(focalPixels(1600,1,0,"vertical"),null);
+});
+
 test("a central downward ray hits the ground ahead of the camera", () => {
   const ray = rayFromPixel(400, 300, view);
   const point = groundFromRay(ray, 2);
