@@ -67,7 +67,10 @@ export function inspectGoogleMapsViewUrl(urlText) {
       if(!Number.isFinite(number))continue;
       if(m[2]==="y"&&number>=10&&number<=120)fov=number;
       if(m[2]==="h"&&number>=0&&number<=360)heading=number;
-      if(m[2]==="t"&&number>=0&&number<=180)pitch=90-number;
+      // Maps' path tilt is 0° down, 90° horizontal, 180° up.
+      // Our camera model (and the documented ?pitch= URL) uses positive up.
+      // Reversing this sign puts visible distant ground above the computed horizon.
+      if(m[2]==="t"&&number>=0&&number<=180)pitch=number-90;
     }
     return {pose:{lat,lng,heading,pitch,fov},kind:"streetview-path",reason:"Street View-cameragegevens in Google Maps-adres gevonden."};
   }

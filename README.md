@@ -1,6 +1,14 @@
 # Streetview Metingen — Windows, Google Maps + AHN DTM/DSM
 
-**Versie 0.6.0.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
+**Versie 0.6.1.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
+
+## Herstel verre meetpunten (v0.6.1)
+
+De kijkhoek uit een gewone Google Maps Street View-URL werd omgekeerd ingelezen: een omlaag gericht beeld werd als omhoog gericht berekend. Daardoor werden zichtbare grondpunten verder in beeld vaak geweigerd met *Geen AHN-terreinsnijpunt binnen 500 meter*, terwijl punten onderaan het beeld nog wel werkten. De omzetting is nu `pitch = tilt - 90`; positieve kijkhoeken zijn omhoog, negatieve omlaag. De officiële `?pitch=`-links en handmatige kalibratie behouden hun bestaande betekenis.
+
+Dit is in de geopende Windows-app gecontroleerd door hetzelfde klikpunt vóór en na de hoekcorrectie te testen. Regressietests controleren de volledige URL-, klik- en snijpuntberekening voor grondpunten op 10, 25, 75, 200 en 450 meter, met en zonder AHN. Ook omhoog kijken en de drie herkende panorama-URL-types worden gecontroleerd.
+
+Tijdelijke oplossing in v0.6.0: keer bij de automatisch ingelezen **Kijkhoek op/neer** het teken om voordat je gaat meten. Na draaien of verplaatsen kan v0.6.0 de verkeerde hoek opnieuw invullen. Eerder gemaakte metingen moeten opnieuw worden gezet; de afstand en hoogte kunnen door deze fout verkeerd zijn berekend.
 
 ## Eenvoudig beginnen (zonder iframe-code)
 
