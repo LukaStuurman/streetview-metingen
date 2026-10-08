@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseEmbedHtml,parseGoogleMapsViewUrl,cameraPoseChanged,viewFromFields } from "../desktop-google/measurement-helpers.mjs";
+import { parseEmbedHtml,parseGoogleMapsViewUrl,inspectGoogleMapsViewUrl,cameraPoseChanged,viewFromFields } from "../desktop-google/measurement-helpers.mjs";
 import { rayFromPixel } from "../src/geometry.mjs";
 
 const sample='https://www.google.com/maps/embed?pb=!4v10!6m8!1m7!1sgooglePanoId!2m2!1d51.4416!2d5.4697!3f110.5!4f0!5f0.78';
@@ -58,4 +58,27 @@ test("invalid or unavailable URL values never fabricate camera calibration",()=>
   assert.deepEqual(incomplete,{lat:51.44,lng:5.47,heading:null,pitch:null,fov:null});
   assert.equal(parseGoogleMapsViewUrl("https://www.google.com/maps/@100,5.47,3a,75y,120h,90t"),null);
   assert.equal(parseGoogleMapsViewUrl("https://www.google.com.evil.com/maps/@51,5,3a,75y,120h,90t"),null);
+});
+
+test("Google panorama with 2a or 1a marker is still recognized",()=>{
+  const src="https://www.google.com/maps/@52.0907,5.1214,2a,60y,165h,85t/data=!4m1";
+  assert.deepEqual(parseGoogleMapsViewUrl(src),{
+    lat:52.0907,lng:5.1214,heading:165,pitch:5,fov:60
+  });
+  assert.equal(parseGoogleMapsViewUrl(src.replace(",2a,",",1a,")).fov,60);
+});
+test("official Google Maps URLs with map_action=pano are recognized",()=>{
+  const url="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=48.857832%2C2.295226&heading=-45&pitch=38&fov=80";
+  const inspection=inspectGoogleMapsViewUrl(url);
+  assert.equal(inspection.kind,"pano-action");
+  assert.deepEqual(inspection.pose,{lat:48.857832,lng:2.295226,heading:315,pitch:38,fov:80});
+  assert.equal(parseGoogleMapsViewUrl("https://www.google.com/maps/@?api=1&map_action=pano&pano=someId"),null);
+  assert.match(inspectGoogleMapsViewUrl("https://www.google.com/maps/@?api=1&map_action=pano&pano=someId").reason,/geen camerapositie/i);
+});
+test("diagnostic explains Maps homepage rather than pretending a Street View pose exists",()=>{
+  const d=inspectGoogleMapsViewUrl("https://www.google.com/maps/search/Made+Noord-Brabant");
+  assert.equal(d.pose,null);
+  assert.equal(d.kind,"no-pano-in-url");
+  assert.match(d.reason,/zonder de browser-URL bij te werken/i);
+  assert.equal(inspectGoogleMapsViewUrl("https://evil.google.com/maps/@51,5,3a,70y").kind,"invalid");
 });
