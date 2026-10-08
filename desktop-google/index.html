@@ -51,6 +51,8 @@
         <label>Horizontale beeldhoek (°)<input id="fov" type="number" step="any" min="10" max="120" value="90"></label>
         <label>Camerahoogte (m)<input id="height" type="number" step="any" min=".5" max="5" value="2.5"></label>
       </div>
+      <p class="muted camera-height-hint">Richtwaarde voor Google Street View-auto's: <strong>2,5 m boven wegdek</strong> (onderzoek, geen vaste Nederlandse fabrieksmaat). Per opname kan dit verschillen. De standaard is aanpasbaar; voor triangulatie van alleen RD X/Y is de camerahoogte niet nodig.</p>
+ 
       <p class="camera-warning">Meetmodus start direct zodra de cameragegevens geldig zijn en AHN (indien ingeschakeld) beschikbaar is. De stand uit Google Maps kan achterlopen; controleer de uitlijning voordat je een meetpunt zet.</p>
       <label class="checkbox"><input id="ahn" type="checkbox" checked> AHN gebruiken voor 3D-terreinberekening</label>
       <label for="ahn-layer">AHN-model</label>
@@ -79,9 +81,26 @@
       </div>
     </section>
     <section>
-      <h2><span>04</span> Afstanden <small>indicatief</small></h2>
+    </section>
+    <section>
+      <h2><span>04</span> Triangulatie <small>2 of meer panoramas</small></h2>
+      <p class="muted">Bepaal de X/Y van <strong>hetzelfde object</strong> vanuit meerdere Street View-posities. Open de eerste positie, start een doel, klik het object aan, navigeer minstens 5–10 meter verder en klik hetzelfde object opnieuw. De app bewaart de afzonderlijke kijkstralen ook als je door Street View navigeert.</p>
+      <div class="actions">
+        <button id="tri-start" class="primary" type="button">Nieuw triangulatiedoel</button>
+        <button id="tri-undo" type="button">Laatste kijkstraal wissen</button>
+      </div>
+      <div class="actions">
+        <button id="tri-stop" type="button">Triangulatie afsluiten</button>
+        <button id="tri-export" type="button">Triangulatie CSV</button>
+      </div>
+      <p id="tri-status" class="status" aria-live="polite">Niet actief. Start een doel om twee of meer panoramas te combineren.</p>
+      <div id="tri-results" class="tri-results" aria-live="polite"></div>
+      <p class="camera-warning">Triangulatie gebruikt de cameraposities en kijkrichtingen uit Google Maps of je handmatige kalibratie. Zonder Google Cloud-sleutel kan de app geen reeks naastgelegen panoramas automatisch opvragen of zelf hetzelfde object herkennen. De cameracoördinaten en kijkhoeken kunnen afwijken.</p>
+    </section>
+    <section>
+      <h2><span>05</span> Afstanden <small>indicatief</small></h2>
       <div id="results" class="results"></div>
-      <h2 class="point-heading"><span>05</span> Meetpunten en coördinaten <small>indicatief</small></h2>
+      <h2 class="point-heading"><span>06</span> Meetpunten en coördinaten <small>indicatief</small></h2>
       <p class="muted">Lokaal X/Y = meters vanaf de camera (oost/noord). RD X/Y = benaderde Rijksdriehoekscoördinaten (EPSG:28992). <strong>De automatische positie is het eerste AHN-snijpunt</strong>, niet noodzakelijk het verre object dat je in de foto aanklikt. Onder ieder punt kun je een bekende horizontale afstand vanaf de camera invoeren en X/Y opnieuw berekenen.</p>
       <p class="camera-warning">Een afstand die je zelf invoert moet van buiten de foto bekend zijn. De gewijzigde Z-waarde volgt de kijkstraal en is geen rechtstreeks gemeten AHN-hoogte. Bij verre punten kunnen kleine fouten in FOV, camerahoek of hoogte grote positieafwijkingen geven.</p>
       <div id="point-results" class="point-results" aria-live="polite"></div>
