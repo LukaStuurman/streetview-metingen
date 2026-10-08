@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c1923">
+  <title>Streetview Metingen Desktop — zonder Google Cloud</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="../node_modules/@panoramax/web-viewer/build/cjs/index_photoviewer.js" defer></script>
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <header>
+        <div class="eyebrow">DESKTOP · GEEN GOOGLE CLOUD</div>
+        <h1>Streetview<br><em>Metingen</em></h1>
+        <p>Vrije 360°-straatbeelden van Panoramax met AHN-maaiveldhoogtes.</p>
+      </header>
+      <section>
+        <h2><span class="number">01</span> Kies een locatie</h2>
+        <div class="split">
+          <label>Breedtegraad<input type="number" id="lat" min="-90" max="90" step="any" value="51.4416"></label>
+          <label>Lengtegraad<input type="number" id="lng" min="-180" max="180" step="any" value="5.4697"></label>
+        </div>
+        <button id="go" class="primary">Zoek Panoramax-foto in de buurt</button>
+        <div class="actions"><button id="previous">← Vorige</button><button id="next">Volgende →</button></div>
+        <p class="muted">Alleen waar Panoramax beelden aanbiedt. 360°-foto's zijn vereist om te meten; dekking is niet gelijk aan Google Street View.</p>
+        <a id="osm-link" href="https://www.openstreetmap.org/" target="_blank" rel="noopener">Bekijk deze locatie op OpenStreetMap ↗</a>
+      </section>
+      <section>
+        <h2><span class="number">02</span> Meten</h2>
+        <div class="mode">
+          <button id="navigate" class="selected" aria-pressed="true">Navigeren</button>
+          <button id="measure" aria-pressed="false">Punten plaatsen</button>
+        </div>
+        <label class="check"><input id="ahn" type="checkbox" checked> AHN-maailveldhoogtes (NAP)</label>
+        <label>Camerahoogte boven maaiveld (m)
+          <input id="height" type="number" value="2.5" min="0.5" max="5" step="0.1">
+        </label>
+        <p class="muted" id="ahn-status">AHN wordt geladen zodra een panorama geselecteerd is.</p>
+        <div class="actions">
+          <button id="newline">+ Nieuwe lijn</button><button id="undo">↶ Laatste punt</button>
+        </div>
+        <div class="actions">
+          <button id="clear">Metingen wissen</button><button id="save">Export CSV</button>
+        </div>
+      </section>
+      <section>
+        <h2><span class="number">03</span> Resultaten <span class="secondary">indicatief</span></h2>
+        <div id="results" class="results" aria-live="polite"></div>
+      </section>
+      <div class="footer">Dit is een open-beeldalternatief. De metingen zijn schattingen,
+        geen landmeetkundige of kadastrale gegevens. Internet nodig voor foto's en AHN.
+        Beeldlicentie en bronvermelding blijven van toepassing.</div>
+    </aside>
+    <main class="stage">
+      <pnx-photo-viewer id="panoramax" endpoint="https://api.panoramax.xyz/api"
+        lang="nl" url-parameters="false"></pnx-photo-viewer>
+      <canvas id="drawing" aria-label="Punten en afstandslijnen boven het panorama"></canvas>
+      <div class="topline"><span class="green-dot"></span>
+        <span id="photo-status">Panoramax verbinden…</span>
+      </div>
+      <div class="notice" role="status" aria-live="polite" id="notice">
+        Zoek een locatie met Panoramax 360°-beelden.
+      </div>
+      <div class="attribution">Straatbeelden © respectievelijke Panoramax-auteurs · licentie afhankelijk van de opname</div>
+    </main>
+  </div>
+</body>
+</html>
