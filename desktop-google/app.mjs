@@ -146,6 +146,8 @@ function beginTriangulation(){
 }
 function captureTriangulation(ray){
   const tri=state.triangulation;
+  if(Math.hypot(ray.e,ray.n)<0.01)
+    return notice("Kijk bijna verticaal: deze straal levert geen bruikbare X/Y-richting.",true);
   const loc=cameraLocation();
   const origin=tri.observations[0];
   // A second observation from the same panorama adds no depth information.
