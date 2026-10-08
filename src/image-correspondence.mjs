@@ -9,6 +9,7 @@
  * Works with deterministic test images and data supplied by permitted sources.
  */
 import {pointAtHorizontalDistance,pixelFromWorld,rayFromPixel} from "./geometry.mjs";
+import {triangulatePanoramas} from "./triangulation.mjs";
 
 const RAD=Math.PI/180;
 const validImage=image=>
@@ -148,4 +149,61 @@ export function epipolarCandidates({
     result.push({x:pixel.x,y:pixel.y,rangeM:range});
   }
   return result;
+}
+
+
+/**
+ * One-click correspondence AND geometric intersection, given two already
+ * authorized image buffers and two trustworthy camera poses.
+ *
+ * NO automated Google panorama navigation or screenshot extraction takes
+ * place here. Imagery permissions and pano/pose acquisition are explicitly
+ * the caller's responsibility.
+ */
+export function matchAndTriangulateViews({
+  source,target,sourcePoint,cameraA,cameraB,minScore=0.82
+}={}){
+  if(!validImage(source)||!validImage(target)||
+     source.width!==cameraA?.view?.width||
+     source.height!==cameraA?.view?.height||
+     target.width!==cameraB?.view?.width||
+     target.height!==cameraB?.view?.height)
+    return {status:"invalid-calibration",reason:"Beeldafmetingen komen niet overeen met het cameramodel."};
+
+  const candidates=epipolarCandidates({cameraA,cameraB,sourcePoint});
+  if(candidates.length<2)return {status:"no-epipolar-path",
+    reason:"Het doel heeft geen bruikbare zoeklijn in de tweede opname."};
+
+  const match=matchImagePatch({
+    source,target,sourcePoint,candidates,minScore
+  });
+  if(match.status!=="ok")return {status:"match-"+match.status,
+    reason:match.reason,matchScore:match.score??null};
+
+  const aRay=rayFromPixel(sourcePoint.x,sourcePoint.y,cameraA.view);
+  const bRay=rayFromPixel(match.x,match.y,cameraB.view);
+  if(!aRay||!bRay)return {status:"invalid-calibration"};
+  const triangulation=triangulatePanoramas([
+    {lat:cameraA.lat,lng:cameraA.lng,ray:aRay,cameraZ:cameraA.cameraZ},
+    {lat:cameraB.lat,lng:cameraB.lng,ray:bRay,cameraZ:cameraB.cameraZ}
+  ]);
+  if(triangulation.status!=="ok")return {
+    status:"geometry-"+triangulation.status,matchScore:match.score,
+    reason:triangulation.message??"De zichtlijnen leveren geen geldig snijpunt."
+  };
+  if(triangulation.quality==="low")
+    return {status:"weak-geometry",matchScore:match.score,
+      reason:"Beeldmatch gevonden, maar camerabasis/snijhoek geeft een onzekere locatie.",
+      baselineM:triangulation.baselineM,angleDeg:triangulation.angleDeg};
+  return {
+    status:"ok",
+    // Do NOT expose copied pixels or bitmaps in persisted results.
+    pixelB:{x:match.x,y:match.y},
+    matchScore:match.score,matchMargin:match.margin,
+    point:triangulation.point,
+    baselineM:triangulation.baselineM,
+    angleDeg:triangulation.angleDeg,
+    residualRmsM:triangulation.residualRmsM,
+    sensitivityAtOneDegreeM:triangulation.sensitivityAtOneDegreeM
+  };
 }
