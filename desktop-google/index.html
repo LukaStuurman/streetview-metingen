@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src https://www.google.com https://www.google.nl; connect-src https://service.pdok.nl; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Streetview Metingen — originele Google-beelden</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="tools">
+    <header>
+      <div class="eyebrow">WINDOWS DESKTOP · ORIGINEEL GOOGLE</div>
+      <h1>Streetview <span>Metingen</span></h1>
+      <p>Echte Google Street View via een door Google gedeelde insluitlink. Geen Google Cloud-account, API-sleutel of eigen beeldopslag.</p>
+    </header>
+    <section>
+      <h2><span>01</span> Google Street View openen</h2>
+      <p class="muted">Open Google Maps in je browser, ga naar Street View, kies <strong>Delen → Een kaart insluiten → HTML kopiëren</strong> en plak die HTML hieronder.</p>
+      <button type="button" id="open-maps" class="secondary full">Open Google Maps ↗</button>
+      <label for="embed">Door Google gegenereerde insluitcode of URL</label>
+      <textarea id="embed" rows="3" spellcheck="false" placeholder='<iframe src="https://www.google.com/maps/embed?pb=..." ...></iframe>'></textarea>
+      <button id="load" class="primary full" type="button">Originele Street View tonen</button>
+      <p class="muted">Alleen officiële <code>google.com/maps/embed</code>-links worden geaccepteerd. Geen verborgen Google-API's of gedownloade panoramafoto's.</p>
+    </section>
+    <section>
+      <h2><span>02</span> Camerakalibratie</h2>
+      <p class="muted">De camera in een ingesloten Google-frame is technisch niet van buitenaf uitleesbaar. Vul de kijkrichting, hellingshoek en horizontale beeldhoek van de <strong>huidige, stilstaande weergave</strong> zelf in. Zonder kalibratie zijn afstanden onbevestigde schattingen.</p>
+      <div class="input-grid">
+        <label>Camera-breedtegraad<input id="lat" type="number" step="any" min="-90" max="90" placeholder="51.4416" required></label>
+        <label>Camera-lengtegraad<input id="lng" type="number" step="any" min="-180" max="180" placeholder="5.4697" required></label>
+        <label>Kijkrichting (°)<input id="heading" type="number" step="any" min="0" max="360" value="0"></label>
+        <label>Kijkhoek op/neer (°)<input id="pitch" type="number" step="any" min="-85" max="85" value="-12"></label>
+        <label>Horizontale beeldhoek (°)<input id="fov" type="number" step="any" min="15" max="120" value="90"></label>
+        <label>Camerahoogte (m)<input id="height" type="number" step="any" min=".5" max="5" value="2.5"></label>
+      </div>
+      <label class="checkbox"><input id="calibration-confirmed" type="checkbox"> Ik heb de cameracoördinaten, richting, hoek en beeldhoek gecontroleerd</label>
+      <label class="checkbox"><input id="ahn" type="checkbox" checked> AHN-maaiveldhoogtes (m NAP) gebruiken</label>
+      <p id="ahn-status" class="status" aria-live="polite">Wachten op een locatie.</p>
+      <button id="refresh-ahn" type="button" class="secondary full">AHN opnieuw ophalen</button>
+    </section>
+    <section>
+      <h2><span>03</span> Tekenen en meten</h2>
+      <div class="segmented">
+        <button id="navigate" type="button" class="selected" aria-pressed="true">Navigeren</button>
+        <button id="measure" type="button" aria-pressed="false">Meetpunten zetten</button>
+      </div>
+      <p class="muted">Tijdens meten wordt de Google-weergave vergrendeld. Zodra je weer gaat navigeren worden de oude overlay-punten gewist, omdat de camera niet automatisch gevolgd kan worden.</p>
+      <div class="actions">
+        <button id="new-line" type="button">Nieuwe lijn</button>
+        <button id="undo" type="button">Laatste punt wissen</button>
+      </div>
+      <div class="actions">
+        <button id="clear" type="button">Alles wissen</button>
+        <button id="export" type="button">Export CSV</button>
+      </div>
+    </section>
+    <section>
+      <h2><span>04</span> Afstanden <small>indicatief</small></h2>
+      <div id="results" class="results"></div>
+    </section>
+    <footer>
+      <p>Meetresultaten zijn afhankelijk van handmatige camerakalibratie, de AHN-terreinopname en de aannames over projectie. <strong>Niet geschikt voor maatvoering, constructie, kadastrale gegevens of kabeluitzetting.</strong></p>
+      <p>Google-afbeeldingen en bronvermelding worden rechtstreeks door Google getoond. De app kopieert of bewaart geen Google-beelden.</p>
+    </footer>
+  </aside>
+  <main id="viewer" class="viewer">
+    <div class="welcome" id="welcome"><strong>Originele Google Street View</strong><span>Plak de door Google gedeelde insluitlink om te beginnen.</span></div>
+    <iframe id="google-frame" title="Google Maps Street View" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <canvas id="overlay" aria-label="Meetlaag boven Street View"></canvas>
+    <div class="floating" id="notice" role="status" aria-live="polite">Navigeer in het beeld en schakel daarna naar meetmodus.</div>
+  </main>
+</div>
+</body>
+</html>

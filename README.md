@@ -1,67 +1,62 @@
-# Street View Metingen met AHN
+# Streetview Metingen — Google zonder Cloud-account (desktop)
 
-Een webapp om direct in **Google Street View** punten en lijnen te tekenen. Met de optionele AHN-modus worden punten op het **digitale terreinmodel (DTM)** geprojecteerd, zodat hoogteverschillen in maaiveld meewegen. De gebruiker ziet horizontale en 3D-segmentlengtes en hoogtes in meters ten opzichte van **NAP**.
+Dit is een **Windows-desktopversie** die echte Google Street View-beelden toont met de officiële functie **Google Maps → Delen → Een kaart insluiten**. Een **Google Cloud-account, API-sleutel of billingconfiguratie is niet nodig** om een door Google gemaakte embed-link te gebruiken. Google Maps, AHN/PDOK en het internet moeten bereikbaar zijn.
 
-> **Indicatieve metingen, geen survey.** Het digitale terreinmodel is onafhankelijk van het Street View-beeld. De kijkrichting, camerahoogte boven maaiveld, de panorama-geometrie en het moment waarop foto en AHN zijn ingewonnen kunnen sterk afwijken. Het DTM bevat geen gevelhoogtes of betrouwbare punten op bruggen, muren, bomen of daken. Gebruik de gegevens niet om kabels uit te zetten, eigendomsgrenzen vast te stellen of bouwkundige maatvoering te bepalen.
+> Dit is **geen officiële Google Street View API-integratie**, geen reverse-engineering van Google-beelden en geen reproductie van Google Earth Pro. De applicatie gebruikt alleen de embed-HTML die Google Maps zelf verstrekt en plaatst een lokale transparante meetlaag in het eigen programmavenster.
 
 ## Starten
 
-1. Maak een Google Cloud-project met facturering en schakel **Maps JavaScript API** in. Maak een API-sleutel met passende API- en HTTP-referrerrestricties.
-2. Start een statische webserver in de repository, bijvoorbeeld `python -m http.server 8000`.
-3. Open `http://localhost:8000`, vul de sleutel in en klik **Street View openen**.
-4. Kies een locatie via breedte- en lengtegraad of navigeer in Street View.
-5. **AHN-maaiveldhoogtes gebruiken (DTM)** staat standaard aan. De applicatie vraagt de **maaiveldhoogte bij de camera** bij PDOK op. Wacht tot de hoogte in **m NAP** wordt getoond.
-6. Klik **Meetlijn** en vervolgens op zichtbare **grond** in Street View. Elke klik bepaalt een punt op het AHN-terreinprofiel langs de kijklijn (maximaal 150 m van de camera).
-7. Resultaten tonen de **horizontale lengte**, de **3D-lengte van rechte lijnsegmenten**, de **hoogte van het laatst aangeklikte punt** en een **hoogteverschil**. Naast meetpunten staat de indicatieve NAP-hoogte.
-8. Met **+ Nieuwe lijn**, **Ongedaan** en **Alle metingen wissen** beheer je de lijnen. Met **Navigeren** (of Escape) bedien je Street View weer.
+### Windows-executable
 
-De app vraagt een **camerahoogte boven lokaal maaiveld** in meters (standaard 2,5 m). Omdat Street View deze echte hoogte niet via de viewer opgeeft, blijft dit een onzekerheidsbron. Bij wijziging van de camerahoogte worden AHN-meetpunten gewist: klik opnieuw met de bijgewerkte aanname.
+1. Open de [GitHub Actions-build](https://github.com/LukaStuurman/streetview-metingen/actions/workflows/desktop-windows.yml) en open een geslaagde workflow-run.
+2. Download onder **Artifacts** de Windows-app-bundel en pak deze uit.
+3. Start de portable `.exe` of het installatieprogramma.
+4. Ga in je browser naar [Google Maps](https://www.google.com/maps) en schakel naar de gewenste Street View-foto.
+5. Gebruik **Delen → Een kaart insluiten → HTML kopiëren**. Plak de complete `<iframe ...></iframe>` HTML in de desktopapp en kies **Originele Street View tonen**.
+6. De app leest uit sommige door Google gegenereerde URLs cameracoördinaten en heading als *voorstel*; deze zijn niet altijd beschikbaar of correct. Controleer de positie, **kalibreer heading, pitch en horizontale beeldhoek** op het zichtbare beeld en vink aan dat je de camerainstellingen hebt gecontroleerd. Zonder deze expliciete bevestiging start de meetfunctie niet. Bij ontbrekende coördinaten moeten die eerst handmatig worden ingevuld. De standaardwaarden zijn alleen aannames.
+7. Kies optioneel **AHN-maaiveldhoogtes** voor hoogteverschillen. AHN-terreinhoogtes worden zonder sleutel live bij PDOK opgevraagd.
+8. Kies **Meetpunten zetten**, plaats punten op zichtbare grond en lees de geschatte horizontale afstand, rechte 3D-lengte en AHN-hoogte af.
+9. Gebruik **Export CSV** om alleen berekende meetpunten op te slaan, niet de Google-afbeeldingen.
 
-## AHN-dienst
+### Voor ontwikkelaars
 
-De app gebruikt de publieke [PDOK AHN WMS](https://www.pdok.nl/ogc-webservices/-/article/actueel-hoogtebestand-nederland-ahn) (laag `dtm_05m`) met `GetFeatureInfo` voor maaiveldhoogtes in meters NAP. Er is **geen extra AHN-API-sleutel** nodig. De browser gebruikt deze webservice direct. Dit vereist dat de PDOK-dienst bereikbaar is en cross-origin verzoeken toestaat. Een fout of ontbrekende rasterwaarde wordt gemeld: **de applicatie valt niet stilzwijgend terug op vlak maaiveld**.
-
-- **DTM** modelleert het maaiveld, met bebouwing en begroeiing verwijderd. Voor gevels/daken is geen correcte 3D-afstand mogelijk met alleen AHN-DTM en één Street View-foto.
-- De camera wordt aangenomen op `AHN_camera + ingevoerde camerahoogte`.
-- Een klik op het panorama wordt een kijkstraal vanuit de virtuele camera. Langs die straal worden lokaal verschillende AHN-hoogtes opgevraagd. Een eerste overgang van boven het terrein naar op/onder het terrein wordt verfijnd tot circa 0,5 meter *langs de grond*. Dit is de **monsterafstand van het algoritme**, geen beloofde meetnauwkeurigheid.
-- Aangeklikte punten worden bewaard als lokale oost/noord/elevatiecoördinaten en opnieuw getekend bij draaien of zoomen binnen hetzelfde panorama.
-- De **3D-lengte** is de som van **rechte** ruimtelijke lijnstukken tussen gekozen punten, **niet** de lengte van een pad dat de fijnere helling van de bodem exact volgt.
-- Wanneer een panorama of camerastandplaats verandert, worden de meetpunten gewist en wordt het AHN-referentieniveau vernieuwd. Zo worden punten niet aan een verkeerde foto gekoppeld.
-- Ontbrekende AHN-data kunnen voorkomen bij water, bruggen, objecten, aan landsgrenzen en in nieuwe of niet-ingewonnen gebieden.
-
-De WMS `GetFeatureInfo`-aanroep vraagt alleen rasterwaardes op geselecteerde locaties. Voor grotere aantallen metingen of hoogfrequent profileren is een raster- of tileservice met lokale sampling efficiënter.
-
-## Vlakke modus zonder AHN
-
-Schakel **AHN-maaiveldhoogtes gebruiken** uit. De app gebruikt dan de oorspronkelijke aanname van een vlak maaiveld op de camerapositie. Deze modus werkt ook buiten Nederland, maar kent **geen** absolute NAP-hoogte of terreinhelling.
-
-## Beperkingen
-
-- Camerahoogte, hellingshoek, camera-oriëntatie, Street View-rendering en tijdsverschil tussen foto en AHN introduceren onzekerheid. Reken niet op decimeter- of centimeterprecisie.
-- Er is geen 3D-dieptekaart in de gebruikte Google Street View API en geen automatische identificatie van grond tegenover muren/daken/vegetatie. Klik uitsluitend op vrij zichtbaar maaiveld.
-- Het huidige terreinmodel kan kleine hoogteverschillen missen, vooral tussen bemonsterde meetpunten. De eerste gevonden terrein-kruising hoeft niet het object te zijn dat in het panorama wordt aangeklikt.
-- De applicatie leest hoogtes bij PDOK via browser-`fetch` en slaat geen meetpunten permanent op.
-- Google Maps API-gebruik kan betaald zijn; raadpleeg de Maps Platform-prijzen.
-
-## Tests
-
-Node.js 18+:
+Installeer Node.js 20 of nieuwer, ga naar de repository en gebruik:
 
 ```sh
+npm install
+npm run desktop
 npm test
+npm run dist:win
 ```
 
-De tests controleren o.a. projectie, camerahoeken, opnieuw tekenen, PDOK-verzoekopbouw, hoogteparse, ontbrekende waarden, vlak terrein, hellingen, opgaande kijklijnen en 3D-afstand. De GitHub Actions-workflow voert de tests uit bij pushes en pull requests. Een volledige browsertest met echte Street View-API-sleutel en live PDOK-netwerkverkeer blijft nodig.
+De standaard webapp (origineel vanaf de basisbranch) is nog beschikbaar via `index.html`, maar **die** gebruikt nog de officiële Google Maps JavaScript API met sleutel. Start voor de nieuwe accountvrije versie specifiek `npm run desktop`.
 
-## Bestanden
+## Belangrijke beperkingen
 
-```
-index.html                Webinterface / AHN-keuze
-styles.css                Layout en knoppen
-src/app.mjs               Street View-bediening, meetpunten en resultaten
-src/geometry.mjs          Panorama-geometrie en 3D-projectie
-src/ahn.mjs               PDOK-WMS-client en ray/terrain-intersectie
-test/*.test.mjs           Unit tests
-```
+- **Het Google-frame is cross-origin.** De software kan, zonder officiële API, niet uitlezen waarheen je binnen het Google-frame draait of inzoomt. In meetmodus is het iframe daarom tegen muisklikken vergrendeld. Zodra je teruggaat naar Navigeren, wist het programma de vorige punten om geen schijnprecisie te tonen.
+- Een Google Maps embed wordt getoond **zoals Google hem levert**, inclusief logo en attributie. Alleen de originele door Google verstrekte insluitcode wordt geaccepteerd. **Niet** zelf de kaartbeelden downloaden, tegels onderscheppen, onderschepte Google-interne API's gebruiken of Google-UI aanpassen.
+- **Handmatige camerakalibratie is vereist.** Coördinaten in een Google embed-link zijn niet gegarandeerd de exacte camerapositie en de weergegeven blikrichting is zonder API niet verifieerbaar. Een achteraf verdraaide/ingezoomde iframe-inhoud kan NIET automatisch met de overlay worden gesynchroniseerd.
+- Het AHN DTM modelleert **maaiveld** in meters t.o.v. NAP. Voor gevels, bovenleidingen, bomen, brugdekken en daken werkt de terrein-gebaseerde snijpuntmeting niet. Camera- en hoekfouten kunnen grote afstandsfouten veroorzaken.
+- De 3D-lengte telt rechte 3D-lijnsegmenten tussen gemeten punten op, niet de exacte lengte langs het terrein.
+- **Geen landmeetkundige nauwkeurigheid, geen zakelijke/kadastrale/constructieve maatvoering.** Behandel ieder resultaat als een grove, niet-gevalideerde schatting.
+- De installatie en webbeveiliging hangen af van versies van Google Maps en Electron. Als Google de insluitfunctie wijzigt, kan deze aanpak stoppen met werken. In de niet-ingelogde Google Maps-viewer hoeft niet iedere foto beschikbaar te zijn.
 
-Bronnen: [PDOK AHN](https://www.pdok.nl/ogc-webservices/-/article/actueel-hoogtebestand-nederland-ahn) en [Google Maps JavaScript Street View API](https://developers.google.com/maps/documentation/javascript/streetview).
+## Projectbestanden
+
+- `desktop-google/main.cjs`: minimale, beveiligde Electron-shell.
+- `desktop-google/index.html`: Windows-interface en originele Google Maps-iframe.
+- `desktop-google/app.mjs`: meetpunten, AHN, projectie, export.
+- `desktop-google/measurement-helpers.mjs`: strikte validatie van Google-share-links.
+- `src/ahn.mjs`: openbare PDOK AHN DTM via GetFeatureInfo.
+- `src/geometry.mjs`: projectiegeometrie.
+- `test/google-embed.test.mjs`: tests voor Google insluit-URL's en kalibratie.
+
+## Waarom Google Earth Pro niet exact hetzelfde doet
+
+Google Earth Pro heeft wel lijn-/pad-/3D-meetfuncties in de 3D-wereld. De Street View-panoramaweergave staat los van dat driedimensionale coördinatensysteem; Google Earth Pro schakelt zijn eigen ruler daarom uit in Street View. De hier getoonde overlay is dus een zelfstandige **experimentele** meetfunctie, geen kopie van een landmeetfunctie in Google Earth Pro.
+
+Bronnen:
+- [Google Maps: kaart delen/insluiten](https://support.google.com/maps/answer/7101463?hl=nl)
+- [Google Earth Pro: afstanden en hoogtes meten](https://support.google.com/earth/answer/148134?hl=en)
+- [Google Earth-community: ruler uitgeschakeld in Street View](https://support.google.com/earth/thread/182832422/ruler-greyed-out-in-street-view-in-google-earth)
+- [Google Earth en Street View gebruiksvoorwaarden](https://maps.google.com/intl/en_all/help/terms_maps-earth/)

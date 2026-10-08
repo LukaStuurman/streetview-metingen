@@ -1,11 +1,43 @@
 {
   "name": "streetview-metingen",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Indicatieve afstanden tekenen en meten binnen Google Street View",
+  "description": "Google Maps Street View meetoverlay zonder Google API-sleutel, met PDOK AHN",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "desktop": "electron .",
+    "dist:win": "electron-builder --win portable nsis --publish never"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "desktop-google/main.cjs",
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "nl.streetviewmetingen.googlekeyless",
+    "productName": "Streetview Metingen",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop-google/**/*",
+      "src/ahn.mjs",
+      "src/geometry.mjs",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
 }
