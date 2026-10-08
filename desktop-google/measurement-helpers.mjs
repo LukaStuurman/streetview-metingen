@@ -31,3 +31,26 @@ export function viewFromFields({width,height,heading,pitch,fov}) {
     !(width>0&&height>0&&fov>=15&&fov<=120&&Math.abs(pitch)<=85))return null;
   return {width,height,heading,pitch,zoom:Math.log2(180/fov)};
 }
+
+/**
+ * Best-effort hints from the user-visible Google Maps Street View URL.
+ * Google does not promise this URL representation; never treat it as
+ * a calibrated camera or click-ray/depth API.
+ */
+export function parseGoogleMapsViewUrl(urlText) {
+  let url;
+  try { url = new URL(urlText); } catch { return null; }
+  if (url.protocol !== "https:" ||
+      !["www.google.com", "www.google.nl", "google.com"].includes(url.hostname) ||
+      !url.pathname.startsWith("/maps")) return null;
+  // Example: /maps/@51.44,5.47,3a,75y,240h,90t/data=...
+  const match = url.pathname.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),3a(?:,\d+(?:\.\d+)?y)?(?:,(-?\d+(?:\.\d+)?)h)?/);
+  if (!match) return null;
+  const lat = Number(match[1]), lng = Number(match[2]), heading = Number(match[3]);
+  if (![lat,lng].every(Number.isFinite) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return {
+    lat, lng,
+    heading: match[3] && Number.isFinite(heading) && heading >= 0 && heading <= 360
+      ? heading : null
+  };
+}

@@ -19,7 +19,10 @@
     </header>
     <section>
       <h2><span>01</span> Google Street View openen</h2>
-      <p class="muted">Open Google Maps in je browser, ga naar Street View, kies <strong>Delen → Een kaart insluiten → HTML kopiëren</strong> en plak die HTML hieronder.</p>
+      <button id="maps-browser" class="primary full" type="button">Open Google Maps in dit programma</button>
+      <p class="muted">Zoek in de ingebouwde Google Maps-weergave een adres en klik op een blauwe Street View-lijn of foto. <strong>Geen deelcode nodig.</strong> De normale website werkt onafhankelijk van een Cloud API-sleutel. De camerakalibratie blijft handmatig.</p>
+      <button id="use-iframe" class="secondary full" type="button">Alternatief: Google-insluitlink gebruiken</button>
+      <p class="muted">Alleen als de ingebouwde Google Maps-website niet werkt: open Google Maps in je browser, kies in Street View <strong>Delen → Een kaart insluiten → HTML kopiëren</strong> en plak de HTML hieronder.</p>
       <button type="button" id="open-maps" class="secondary full">Open Google Maps ↗</button>
       <label for="embed">Door Google gegenereerde insluitcode of URL</label>
       <textarea id="embed" rows="3" spellcheck="false" placeholder='<iframe src="https://www.google.com/maps/embed?pb=..." ...></iframe>'></textarea>
@@ -38,7 +41,13 @@
         <label>Camerahoogte (m)<input id="height" type="number" step="any" min=".5" max="5" value="2.5"></label>
       </div>
       <label class="checkbox"><input id="calibration-confirmed" type="checkbox"> Ik heb de cameracoördinaten, richting, hoek en beeldhoek gecontroleerd</label>
-      <label class="checkbox"><input id="ahn" type="checkbox" checked> AHN-maaiveldhoogtes (m NAP) gebruiken</label>
+      <label class="checkbox"><input id="ahn" type="checkbox" checked> AHN gebruiken voor 3D-terreinberekening</label>
+      <label for="ahn-layer">AHN-model</label>
+      <select id="ahn-layer" aria-label="AHN-model voor gekozen meetpunten">
+        <option value="dtm_05m">DTM — maaiveld (zonder gebouwen)</option>
+        <option value="dsm_05m">DSM — daken, bomen en objecten</option>
+      </select>
+      <p class="muted">DSM geeft hoogte van de bovenste oppervlakken. Het is <strong>geen gevelmodel</strong>. Verschil DSM–DTM is alleen een indicatie voor objecthoogte, niet noodzakelijk voor de hoogte van een gebouw.</p>
       <p id="ahn-status" class="status" aria-live="polite">Wachten op een locatie.</p>
       <button id="refresh-ahn" type="button" class="secondary full">AHN opnieuw ophalen</button>
     </section>
@@ -48,7 +57,7 @@
         <button id="navigate" type="button" class="selected" aria-pressed="true">Navigeren</button>
         <button id="measure" type="button" aria-pressed="false">Meetpunten zetten</button>
       </div>
-      <p class="muted">Tijdens meten wordt de Google-weergave vergrendeld. Zodra je weer gaat navigeren worden de oude overlay-punten gewist, omdat de camera niet automatisch gevolgd kan worden.</p>
+      <p class="muted">Tijdens meten wordt de Google-weergave vergrendeld. Zodra je weer gaat navigeren worden de oude overlay-punten gewist, omdat de camera niet automatisch gevolgd kan worden. Klik voor DSM bij voorkeur op een zichtbaar dak, niet op een gevel.</p>
       <div class="actions">
         <button id="new-line" type="button">Nieuwe lijn</button>
         <button id="undo" type="button">Laatste punt wissen</button>
@@ -70,6 +79,7 @@
   <main id="viewer" class="viewer">
     <div class="welcome" id="welcome"><strong>Originele Google Street View</strong><span>Plak de door Google gedeelde insluitlink om te beginnen.</span></div>
     <iframe id="google-frame" title="Google Maps Street View" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <webview id="google-browser" partition="persist:google-maps" title="Ingebouwde Google Maps" aria-label="Google Maps webbrowser"></webview>
     <canvas id="overlay" aria-label="Meetlaag boven Street View"></canvas>
     <div class="floating" id="notice" role="status" aria-live="polite">Navigeer in het beeld en schakel daarna naar meetmodus.</div>
   </main>

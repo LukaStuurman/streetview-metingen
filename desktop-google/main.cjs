@@ -26,6 +26,9 @@ async function launch() {
     return net.fetch(pathToFileURL(file).toString());
   });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  session.fromPartition("persist:google-maps").setPermissionRequestHandler(
+    (_contents, _permission, callback) => callback(false)
+  );
   const main = new BrowserWindow({
     width: 1530, height: 930, minWidth: 1120, minHeight: 690,
     backgroundColor: "#0b1823", autoHideMenuBar: true,
@@ -34,8 +37,37 @@ async function launch() {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
-      sandbox: true
+      sandbox: true,
+      // Embedded Google Maps website as a normal guest browser tab, not a private Street View API.
+      webviewTag: true
     }
+  });
+  app.on("web-contents-created", (_event, guestContents) => {
+    if (guestContents.getType() !== "webview") return;
+    guestContents.setWindowOpenHandler(() => ({ action:"deny" }));
+    // Remote Google Maps guest is a real web page but may not navigate to
+    // unrelated hosts or access privileged Electron app internals.
+    guestContents.on("will-navigate", (event, address) => {
+      try {
+        const uri = new URL(address);
+        if (uri.protocol === "https:" && uri.hostname === "www.google.com" &&
+            uri.pathname.startsWith("/maps")) return;
+      } catch {}
+      event.preventDefault();
+    });
+  });
+  main.webContents.on("will-attach-webview", (event, webPreferences, params) => {
+    delete webPreferences.preload;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+    webPreferences.webSecurity = true;
+    // Remote guest must be the ordinary public Google Maps website.
+    try {
+      const src = new URL(params.src);
+      if (src.protocol !== "https:" || src.hostname !== "www.google.com" ||
+          !src.pathname.startsWith("/maps")) event.preventDefault();
+    } catch { event.preventDefault(); }
   });
   main.webContents.setWindowOpenHandler(({ url }) => {
     try {

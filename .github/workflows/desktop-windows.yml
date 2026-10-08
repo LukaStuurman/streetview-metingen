@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 jobs:
   windows:
@@ -17,6 +19,9 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Unit tests
         run: npm test
+      - name: Verify live AHN DTM and DSM (non-blocking)
+        run: node scripts/smoke-ahn.mjs
+        continue-on-error: true
       - name: Build Windows portable and installer
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'

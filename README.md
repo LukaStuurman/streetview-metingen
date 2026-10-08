@@ -1,62 +1,58 @@
-# Streetview Metingen — Google zonder Cloud-account (desktop)
+# Streetview Metingen — Windows, Google Maps + AHN DTM/DSM
 
-Dit is een **Windows-desktopversie** die echte Google Street View-beelden toont met de officiële functie **Google Maps → Delen → Een kaart insluiten**. Een **Google Cloud-account, API-sleutel of billingconfiguratie is niet nodig** om een door Google gemaakte embed-link te gebruiken. Google Maps, AHN/PDOK en het internet moeten bereikbaar zijn.
+**Versie 0.4.0 (ontwikkelversie).** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
 
-> Dit is **geen officiële Google Street View API-integratie**, geen reverse-engineering van Google-beelden en geen reproductie van Google Earth Pro. De applicatie gebruikt alleen de embed-HTML die Google Maps zelf verstrekt en plaatst een lokale transparante meetlaag in het eigen programmavenster.
+## Eenvoudig beginnen (zonder iframe-code)
 
-## Starten
+1. Start de Windows-app en klik op **Open Google Maps in dit programma** (de kaart wordt standaard al geopend).
+2. Zoek je locatie in Google Maps en open een **Street View-foto** via de bekende blauwe lijnen of thumbnails.
+3. Wanneer Google Maps een herkenbare Street View-URL toont, vult de app **breedtegraad, lengtegraad en eventueel kijkrichting** als *voorstel* in. Zo niet, vul ze handmatig in.
+4. Controleer de zichtbare kijkrichting, kijkhoek, **horizontale beeldhoek** en camerahoogte. De app kan de daadwerkelijke Street View-camerastand niet zonder API uitlezen. Vink **Ik heb de cameragegevens gecontroleerd** aan.
+5. Kies onder **AHN-model** een van de volgende opties:
+   - **DTM – maaiveld:** geen gebouwen en bomen; geschikt voor een ruwe grondmeting.
+   - **DSM – daken, bomen en objecten:** inschatting op bovenoppervlakken. Als DTM op dezelfde plek beschikbaar is, zie je ook **DSM–DTM** als indicatie voor de hoogte *boven het lokale maaiveld*.
+6. Klik op **Meetpunten zetten** en kies zichtbare **maaiveldpunten (DTM)** of **bovenoppervlakken (DSM)**. De beelden worden in meetmodus niet bediend, zodat de overlay niet ongemerkt verschuift.
+7. Bij **Navigeren** worden bestaande meetpunten gewist; controleer na draaien, zoomen of verplaatsen de camerakalibratie opnieuw. Exporteer je meetpunten desgewenst naar CSV.
 
-### Windows-executable
+**Als de ingebouwde Google Maps-website door Google of het netwerk wordt geblokkeerd:** klik op **Alternatief: Google-insluitlink gebruiken**. Open in je reguliere browser Google Maps Street View, kies **Delen → Een kaart insluiten → HTML kopiëren**, plak die HTML en gebruik **Originele Street View tonen**. Deze optie blijft bestaan.
 
-1. Open de [GitHub Actions-build](https://github.com/LukaStuurman/streetview-metingen/actions/workflows/desktop-windows.yml) en open een geslaagde workflow-run.
-2. Download onder **Artifacts** de Windows-app-bundel en pak deze uit.
-3. Start de portable `.exe` of het installatieprogramma.
-4. Ga in je browser naar [Google Maps](https://www.google.com/maps) en schakel naar de gewenste Street View-foto.
-5. Gebruik **Delen → Een kaart insluiten → HTML kopiëren**. Plak de complete `<iframe ...></iframe>` HTML in de desktopapp en kies **Originele Street View tonen**.
-6. De app leest uit sommige door Google gegenereerde URLs cameracoördinaten en heading als *voorstel*; deze zijn niet altijd beschikbaar of correct. Controleer de positie, **kalibreer heading, pitch en horizontale beeldhoek** op het zichtbare beeld en vink aan dat je de camerainstellingen hebt gecontroleerd. Zonder deze expliciete bevestiging start de meetfunctie niet. Bij ontbrekende coördinaten moeten die eerst handmatig worden ingevuld. De standaardwaarden zijn alleen aannames.
-7. Kies optioneel **AHN-maaiveldhoogtes** voor hoogteverschillen. AHN-terreinhoogtes worden zonder sleutel live bij PDOK opgevraagd.
-8. Kies **Meetpunten zetten**, plaats punten op zichtbare grond en lees de geschatte horizontale afstand, rechte 3D-lengte en AHN-hoogte af.
-9. Gebruik **Export CSV** om alleen berekende meetpunten op te slaan, niet de Google-afbeeldingen.
+## Wat betekent AHN 'gebouwen' precies?
 
-### Voor ontwikkelaars
+- [AHN](https://www.ahn.nl/) is hoogte-informatie. Het **DSM** geeft de hoogtes van daken, bomen en andere bovengrondse objecten; het **DTM** modelleert uitsluitend het maaiveld.
+- De app **herkent niet** of een verhoogd DSM-punt een pand, boom of een ander object is. DSM–DTM is dus geen automatisch geverifieerde gebouwhoogte.
+- AHN is een **2,5D-hoogteraster**, geen volledig 3D-mesh: verticale gevels, ramen, kabels en onderkanten zijn niet betrouwbaar meetbaar.
+- Bij scherpe dakranden maakt de berekening een interpolatie tussen rasterpunten en kijkstralen. Daardoor kan een snijpunt een fictief tussenoppervlak zijn; controleer alle hoogtes en verwacht geen centimeter- of decimeterprecisie.
+- DTM-referentiehoogte bij de camera plus **handmatig ingestelde camerahoogte** blijft nodig, ook bij de DSM-modus.
 
-Installeer Node.js 20 of nieuwer, ga naar de repository en gebruik:
+## Grenzen van de Google-integratie
+
+De app toont de gewone publieke **Google Maps-website** in een geïsoleerde Electron-webweergave. Dit is **geen officiële Maps JavaScript/Street View API-integratie**. De webweergave is een experimentele desktopfunctie; Google kan delen ervan blokkeren of wijzigen. De app gebruikt geen interne Google Maps-API, onderschept geen beelden en slaat geen panoramategels op.
+
+Omdat de camera in Google Maps niet via een ondersteunde externe interface beschikbaar is, worden Google-URL-coördinaten en heading alleen als **hints** gebruikt. Je moet cameracoördinaten, pitch, FOV en hoogte zelf controleren. De overlay kan **niet automatisch** meebewegen wanneer je een panorama draait of zoomt.
+
+**Meetresultaten zijn indicatief. Gebruik deze tool niet voor constructieve berekeningen, kabeluitzetting, vergunningen, kadastrale grenzen of ander landmeetkundig werk.**
+
+## Windows installeren / bouwen
+
+Download de nieuwste Windows portable app of installer vanaf [GitHub Releases](https://github.com/LukaStuurman/streetview-metingen/releases). Voor ontwikkelaars:
 
 ```sh
 npm install
-npm run desktop
 npm test
+npm run desktop
 npm run dist:win
 ```
 
-De standaard webapp (origineel vanaf de basisbranch) is nog beschikbaar via `index.html`, maar **die** gebruikt nog de officiële Google Maps JavaScript API met sleutel. Start voor de nieuwe accountvrije versie specifiek `npm run desktop`.
+Node.js 20 of nieuwer. De oudere `index.html`-webvariant gebruikt nog steeds de Google Maps JavaScript API met eigen sleutel; de **Windows-desktopapp** wordt gestart via `npm run desktop`.
 
-## Belangrijke beperkingen
+## Techniek en tests
 
-- **Het Google-frame is cross-origin.** De software kan, zonder officiële API, niet uitlezen waarheen je binnen het Google-frame draait of inzoomt. In meetmodus is het iframe daarom tegen muisklikken vergrendeld. Zodra je teruggaat naar Navigeren, wist het programma de vorige punten om geen schijnprecisie te tonen.
-- Een Google Maps embed wordt getoond **zoals Google hem levert**, inclusief logo en attributie. Alleen de originele door Google verstrekte insluitcode wordt geaccepteerd. **Niet** zelf de kaartbeelden downloaden, tegels onderscheppen, onderschepte Google-interne API's gebruiken of Google-UI aanpassen.
-- **Handmatige camerakalibratie is vereist.** Coördinaten in een Google embed-link zijn niet gegarandeerd de exacte camerapositie en de weergegeven blikrichting is zonder API niet verifieerbaar. Een achteraf verdraaide/ingezoomde iframe-inhoud kan NIET automatisch met de overlay worden gesynchroniseerd.
-- Het AHN DTM modelleert **maaiveld** in meters t.o.v. NAP. Voor gevels, bovenleidingen, bomen, brugdekken en daken werkt de terrein-gebaseerde snijpuntmeting niet. Camera- en hoekfouten kunnen grote afstandsfouten veroorzaken.
-- De 3D-lengte telt rechte 3D-lijnsegmenten tussen gemeten punten op, niet de exacte lengte langs het terrein.
-- **Geen landmeetkundige nauwkeurigheid, geen zakelijke/kadastrale/constructieve maatvoering.** Behandel ieder resultaat als een grove, niet-gevalideerde schatting.
-- De installatie en webbeveiliging hangen af van versies van Google Maps en Electron. Als Google de insluitfunctie wijzigt, kan deze aanpak stoppen met werken. In de niet-ingelogde Google Maps-viewer hoeft niet iedere foto beschikbaar te zijn.
+- `desktop-google/main.cjs`: Electron desktop en beperkte externe gastbrowser.
+- `desktop-google/app.mjs`: navigeren, handmatig kalibreren, meetpunten, AHN DSM/DTM, CSV.
+- `desktop-google/measurement-helpers.mjs`: veilige Google Maps-links en optionele URL-camerahints.
+- `src/ahn.mjs`: openbare PDOK AHN WMS GetFeatureInfo met DTM `dtm_05m` / DSM `dsm_05m` en afzonderlijke caches.
+- `src/geometry.mjs`: perspectiefmodel en snijpunt tussen kijkstraal en hoogteoppervlak.
+- `test/*.test.mjs`: camerageometrie, Google Maps-URLs, AHN DTM/DSM, no-data en browser fetch-context.
+- `scripts/smoke-ahn.mjs`: netwerkcontrole van DTM/DSM en browser-CORS.
 
-## Projectbestanden
-
-- `desktop-google/main.cjs`: minimale, beveiligde Electron-shell.
-- `desktop-google/index.html`: Windows-interface en originele Google Maps-iframe.
-- `desktop-google/app.mjs`: meetpunten, AHN, projectie, export.
-- `desktop-google/measurement-helpers.mjs`: strikte validatie van Google-share-links.
-- `src/ahn.mjs`: openbare PDOK AHN DTM via GetFeatureInfo.
-- `src/geometry.mjs`: projectiegeometrie.
-- `test/google-embed.test.mjs`: tests voor Google insluit-URL's en kalibratie.
-
-## Waarom Google Earth Pro niet exact hetzelfde doet
-
-Google Earth Pro heeft wel lijn-/pad-/3D-meetfuncties in de 3D-wereld. De Street View-panoramaweergave staat los van dat driedimensionale coördinatensysteem; Google Earth Pro schakelt zijn eigen ruler daarom uit in Street View. De hier getoonde overlay is dus een zelfstandige **experimentele** meetfunctie, geen kopie van een landmeetfunctie in Google Earth Pro.
-
-Bronnen:
-- [Google Maps: kaart delen/insluiten](https://support.google.com/maps/answer/7101463?hl=nl)
-- [Google Earth Pro: afstanden en hoogtes meten](https://support.google.com/earth/answer/148134?hl=en)
-- [Google Earth-community: ruler uitgeschakeld in Street View](https://support.google.com/earth/thread/182832422/ruler-greyed-out-in-street-view-in-google-earth)
-- [Google Earth en Street View gebruiksvoorwaarden](https://maps.google.com/intl/en_all/help/terms_maps-earth/)
+Bronnen: [PDOK AHN](https://service.pdok.nl/rws/ahn/wms/v1_0?SERVICE=WMS&REQUEST=GetCapabilities), [Google Maps delen en insluiten](https://support.google.com/maps/answer/7101463?hl=nl), [Electron-webweergaven](https://www.electronjs.org/docs/latest/tutorial/web-embeds), [Google Maps Platform Embed API](https://developers.google.com/maps/documentation/embed/quickstart).

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  AHNClient, buildAHNUrl, mercatorMeters, offsetLocation,
+  AHNClient, AHN_LAYER, AHN_SURFACE_LAYER, buildAHNUrl, mercatorMeters, offsetLocation,
   parseAHNElevation, terrainRayIntersection, horizontalDistance, spatialDistance
 } from "../src/ahn.mjs";
 import { pixelFromWorld, rayFromPixel } from "../src/geometry.mjs";
@@ -72,6 +72,47 @@ test("default AHN client calls browser Window.fetch with Window as receiver", as
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("DSM and DTM queries remain distinct with separate cache entries", async () => {
+  const dsmUrl = new URL(buildAHNUrl(51.4416, 5.4697, AHN_SURFACE_LAYER));
+  assert.equal(dsmUrl.searchParams.get("LAYERS"), "dsm_05m");
+  assert.equal(dsmUrl.searchParams.get("QUERY_LAYERS"), "dsm_05m");
+  assert.throws(() => buildAHNUrl(51, 5, "https://invalid.example"), RangeError);
+  let calls = 0;
+  const client = new AHNClient(async url => {
+    calls++;
+    const isSurface = new URL(url).searchParams.get("LAYERS") === AHN_SURFACE_LAYER;
+    return {
+      ok: true,
+      json: async () => ({
+        features: [{ properties: { value_list: isSurface ? "16.5" : "4.5" } }]
+      })
+    };
+  });
+  assert.equal(await client.height(51.4416, 5.4697,undefined,AHN_LAYER), 4.5);
+  assert.equal(await client.height(51.4416, 5.4697,undefined,AHN_SURFACE_LAYER), 16.5);
+  assert.equal(await client.height(51.4416, 5.4697,undefined,AHN_SURFACE_LAYER), 16.5);
+  assert.equal(calls, 2);
+  await assert.rejects(client.height(51, 5, undefined, "invalid"), RangeError);
+});
+
+test("DSM surface ray can hit a roof raised above surrounding DTM", async () => {
+  const cameraGround = 3, cameraHeight = 2.5;
+  const ray = { e: 0, n: 1, u: -0.07 };
+  const origin = { lat: 51.4416, lng: 5.4697 };
+  const result = await terrainRayIntersection({
+    ray, origin, cameraBaseZ: cameraGround, cameraHeight,
+    sampleHeight: async (lat, lng) => {
+      const d = (lat - origin.lat) * 111132;
+      return d > 8 ? 10 : 3; // roof begins 8m ahead, rises to 10m NAP
+    }
+  });
+  assert.equal(result.status, "ok");
+  assert.ok(result.point.n >= 6 && result.point.n <= 12);
+  assert.ok(result.point.z > 3);
+  const under = 3;
+  assert.ok(result.point.z - under > 0);
 });
 
 test("offset conversion keeps approximate metric offsets near Dutch latitudes", () => {
