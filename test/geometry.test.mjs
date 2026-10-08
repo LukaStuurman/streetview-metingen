@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   focalPixels, groundFromRay, horizontalFov,
-  lineLength, pixelFromGround, rayFromPixel
+  lineLength, pixelFromGround, pixelFromWorld, rayFromPixel,
+  pointAtHorizontalDistance, rayDepressionDegrees, MAX_GROUND_DISTANCE_M
 } from "../src/geometry.mjs";
 
 const view = { width: 800, height: 600, heading: 0, pitch: -45, zoom: 1 };
@@ -68,4 +69,40 @@ test("height calibration scales polyline lengths", () => {
 
 test("points behind camera are not drawn", () => {
   assert.equal(pixelFromGround({ e: 0, n: -8 }, 2, view), null);
+});
+
+test("distant Street View pixel can represent 200m ground with a shallow depression", () => {
+  const camera={width:800,height:600,heading:90,pitch:0,zoom:1};
+  const ray=rayFromPixel(400,305,camera); // just below the horizon
+  const hit=groundFromRay(ray,2.5);
+  assert.ok(hit,"distant ray should be allowed beyond previous 150m cap");
+  assert.ok(hit.e>190&&hit.e<210,`Expected ~200m, got ${hit.e}`);
+  assert.ok(Math.abs(hit.n)<1e-6);
+});
+
+test("manual range correction shifts a far object without changing its clicked pixel",()=>{
+  const camera={width:800,height:600,heading:45,pitch:-8,zoom:1.3};
+  const ray=rayFromPixel(540,310,camera);
+  const near=pointAtHorizontalDistance(ray,12,5.5);
+  const far=pointAtHorizontalDistance(ray,110,5.5);
+  approx(Math.hypot(near.e,near.n),12,1e-8);
+  approx(Math.hypot(far.e,far.n),110,1e-8);
+  const nearPix=pixelFromWorld(near,5.5,camera);
+  const farPix=pixelFromWorld(far,5.5,camera);
+  approx(nearPix.x,540,1e-6);approx(nearPix.y,310,1e-6);
+  approx(farPix.x,540,1e-6);approx(farPix.y,310,1e-6);
+  assert.ok(Math.abs(far.z-near.z)>2,"Z must follow camera ray, not remain at closer terrain");
+});
+
+test("far target range limits and near-horizon warnings are explicit",()=>{
+  assert.equal(MAX_GROUND_DISTANCE_M,500);
+  const ray=rayFromPixel(400,300,{width:800,height:600,heading:0,pitch:-1,zoom:1});
+  approx(rayDepressionDegrees(ray),1,0.001);
+  const sky=rayFromPixel(400,300,{width:800,height:600,heading:0,pitch:3,zoom:1});
+  assert.ok(rayDepressionDegrees(sky)<0);
+  for(const distance of [-1,0,0.1,MAX_GROUND_DISTANCE_M+1]) {
+    assert.equal(pointAtHorizontalDistance(ray,distance,3),null);
+  }
+  assert.equal(pointAtHorizontalDistance(ray,500,NaN),null);
+  assert.equal(pointAtHorizontalDistance({e:0,n:0,u:1},10,3),null);
 });
