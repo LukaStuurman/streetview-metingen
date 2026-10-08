@@ -1,9 +1,9 @@
 {
   "name": "streetview-metingen",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
-  "description": "Google Maps Street View meetoverlay zonder Google API-sleutel, met PDOK AHN",
+  "description": "Google Maps desktop met ingebouwde Street View-browser, AHN DTM/DSM en indicatieve 3D-metingen",
   "scripts": {
     "test": "node --test",
     "desktop": "electron .",
