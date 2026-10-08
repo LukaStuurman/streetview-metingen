@@ -33,6 +33,16 @@ In **v0.4.0** konden de knoppen **Alles accepteren** en **Alles weigeren** vastl
 - Google kan soms een apart toestemmingsvenster openen. Alleen een officieel Google-toestemmingsadres is in deze aparte browser toegestaan; dezelfde cookiesessie wordt gebruikt.
 - Gebruik bij een niet-werkende ingebouwde browser de bestaande alternatieve Google Maps-insluitlink. De app blijft afhankelijk van veranderingen aan Google's website en cookiesystemen.
 
+## Camerastand automatisch bijwerken bij rondkijken (v0.4.2)
+
+Bij de ingebouwde Google Maps-weergave controleert de desktopapp **vier keer per seconde** de zichtbare navigatie-URL van de normale Google Maps-site. De app reageert ook op Electron-navigatiegebeurtenissen.
+
+Als Google in die URL een Street View-camerastand publiceert, worden **breedtegraad, lengtegraad, kijkrichting (heading), hellingshoek (pitch) en horizontale beeldhoek (FOV/zoom)** opnieuw ingevuld. Bij een gewijzigde camerastand worden eventuele oude metingen verwijderd en moet de gebruiker de nieuwe kalibratie bevestigen voordat er weer wordt gemeten. Bij verplaatsing van het panorama wordt de AHN-maaiveldhoogte opnieuw opgevraagd; bij alleen draaien/zoomen gebeurt geen onnodige AHN-netwerkaanvraag.
+
+**Beperking: dit is URL-synchronisatie, géén volledige realtime-camera-API.** Google kan tijdens slepen de URL niet veranderen of pas na afloop bijwerken; sommige panoramabewegingen blijven daarom onzichtbaar voor de app. Er is geen ondersteunde manier om zonder Google Maps Platform/Street View API de interne Google Maps-camerastand iedere frame uit te lezen. De getoonde URL-waarden blijven indicatief. Controleer de uitlijning en bevestig vóór het meten de kalibratie. Google Cloud-vrije Street View via de gewone browser blijft behouden.
+
+De iframe-fallback deelt zelfs geen live navigatie-URL: daarin blijven de cameravelden handmatig.
+
 ## Grenzen van de Google-integratie
 
 De app toont de gewone publieke **Google Maps-website** in een geïsoleerde Electron-webweergave. Dit is **geen officiële Maps JavaScript/Street View API-integratie**. De webweergave is een experimentele desktopfunctie; Google kan delen ervan blokkeren of wijzigen. De app gebruikt geen interne Google Maps-API, onderschept geen beelden en slaat geen panoramategels op.
