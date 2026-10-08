@@ -50,6 +50,30 @@ test("AHNClient caches valid and missing elevation without hiding HTTP errors", 
   await assert.rejects(unavailable.height(51, 4), /503/);
 });
 
+test("default AHN client calls browser Window.fetch with Window as receiver", async () => {
+  // Browser native fetch is brand-checked; detached fetch called as a field
+  // on AHNClient fails with: Failed to execute 'fetch' on 'Window'.
+  const original = globalThis.fetch;
+  let requests = 0;
+  try {
+    globalThis.fetch = function strictlyBoundWindowFetch(url, options) {
+      assert.equal(this, globalThis, "fetch must run with globalThis/Window as this");
+      assert.match(url, /^https:\/\/service\.pdok\.nl\//);
+      assert.equal(options.mode, "cors");
+      requests++;
+      return Promise.resolve({ ok: true, json: async () => ({
+        features: [{ properties: { value_list: "17.25" } }]
+      }) });
+    };
+    const client = new AHNClient();
+    assert.equal(await client.height(51.44, 5.47), 17.25);
+    assert.equal(await client.height(51.44, 5.47), 17.25);
+    assert.equal(requests, 1, "cached heights must avoid duplicate network requests");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("offset conversion keeps approximate metric offsets near Dutch latitudes", () => {
   const origin = { lat: 52.09, lng: 5.12 };
   const p = offsetLocation(origin, 100, 100);
