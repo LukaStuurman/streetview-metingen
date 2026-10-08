@@ -88,7 +88,8 @@ function summary() {
     rows.push(
       ["AHN-model",state.surfaceLayer===AHN_SURFACE_LAYER?"DSM (dak/object)":"DTM (maaiveld)"],
       ["Rechte 3D-lengte",format(three)+" m"],
-      [state.surfaceLayer===AHN_SURFACE_LAYER?"Laatste DSM-hoogte NAP":"Laatste maaiveld NAP",
+      [last?.rangeManual?"Laatste Z kijkstraal (NAP, geen AHN-punthoogte)":
+        state.surfaceLayer===AHN_SURFACE_LAYER?"Laatste DSM-hoogte NAP":"Laatste maaiveld NAP",
         last ? format(last.z,2)+" m":"—"],
       ["Hoogteverschil",last&&first ? format(last.z-first.z,2)+" m":"—"]
     );
@@ -134,7 +135,8 @@ function summary() {
         ["Y lokaal",format(coordinates.localY,1)+" m"],
         ["RD X",coordinates.rd?format(coordinates.rd.x,1)+" m":"Buiten RD-gebied"],
         ["RD Y",coordinates.rd?format(coordinates.rd.y,1)+" m":"Buiten RD-gebied"],
-        ["Z NAP",state.useAHN?format(vertex.z,2)+" m":"—"],
+        [vertex.rangeManual?"Z kijkstraal (NAP)":"Z NAP",
+          state.useAHN?format(vertex.z,2)+" m":"—"],
         ["Stelsel","RD New · EPSG:28992"],
         ["Afstand tot camera",format(Math.hypot(vertex.e,vertex.n),1)+" m"],
         ["Bepaling",vertex.rangeManual?"Zelf opgegeven afstand":
@@ -150,8 +152,12 @@ function summary() {
         cell.append(key,strong);grid.append(cell);
       }
       const detail=document.createElement("small");
+      const depression=rayDepressionDegrees(state.lines[li][pi].ray);
+      const nearHorizon=depression!==null&&Math.abs(depression)<3;
       detail.textContent="Lat "+coordinates.lat.toFixed(6)+
-        " / lon "+coordinates.lng.toFixed(6)+" · Indicatieve coördinaten";
+        " / lon "+coordinates.lng.toFixed(6)+
+        (nearHorizon?" · Dicht bij horizon: zeer onzeker":"")+
+        " · Indicatieve coördinaten";
       card.append(heading,grid,detail);
       const correction=document.createElement("div");
       correction.className="range-correction";
@@ -435,7 +441,8 @@ function exportCsv() {
   const lines=[["lijn","punt","breedtegraad","lengtegraad","NAP_hoogte_m",
     "AHN_model","maaiveld_DTM_NAP_m","DSM_min_DTM_m",
     "lokaal_X_meter","lokaal_Y_meter","RD_X_meter","RD_Y_meter","RD_EPSG",
-    "afstand_camera_m","diepte_methode","AHN_hoogteverschil_m"].join(";")];
+    "afstand_camera_m","diepte_methode","AHN_hoogteverschil_m",
+    "hoogtebron"].join(";")];
   const origin=cameraLocation();
   for(let line=0;line<state.lines.length;line++){
     for(let i=0;i<state.lines[line].length;i++){
@@ -455,7 +462,9 @@ function exportCsv() {
         Math.hypot(p.e,p.n).toFixed(2),
         p.rangeManual?"handmatige_afstand":
           state.useAHN?"eerste_AHN_snijding":"vlak_maaiveld",
-        Number.isFinite(p.ahnGap)?p.ahnGap.toFixed(2):""].join(";"));
+        Number.isFinite(p.ahnGap)?p.ahnGap.toFixed(2):"",
+        !state.useAHN?"geen_NAP":p.rangeManual?"kijkstraal_NAP_niet_AHN":"AHN"
+        ].join(";"));
     }
   }
   if(lines.length===1)return notice("Plaats eerst meetpunten om te exporteren.",true);
