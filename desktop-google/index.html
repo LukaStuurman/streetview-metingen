@@ -82,7 +82,8 @@
       <h2><span>04</span> Afstanden <small>indicatief</small></h2>
       <div id="results" class="results"></div>
       <h2 class="point-heading"><span>05</span> Meetpunten en coördinaten <small>indicatief</small></h2>
-      <p class="muted">Lokaal X/Y = meters vanaf de camera (oost/noord). RD X/Y = benaderde Nederlandse Rijksdriehoekscoördinaten (EPSG:28992). Z = AHN in m NAP. Niet geschikt om kabels uit te zetten.</p>
+      <p class="muted">Lokaal X/Y = meters vanaf de camera (oost/noord). RD X/Y = benaderde Rijksdriehoekscoördinaten (EPSG:28992). <strong>De automatische positie is het eerste AHN-snijpunt</strong>, niet noodzakelijk het verre object dat je in de foto aanklikt. Onder ieder punt kun je een bekende horizontale afstand vanaf de camera invoeren en X/Y opnieuw berekenen.</p>
+      <p class="camera-warning">Een afstand die je zelf invoert moet van buiten de foto bekend zijn. De gewijzigde Z-waarde volgt de kijkstraal en is geen rechtstreeks gemeten AHN-hoogte. Bij verre punten kunnen kleine fouten in FOV, camerahoek of hoogte grote positieafwijkingen geven.</p>
       <div id="point-results" class="point-results" aria-live="polite"></div>
     </section>
     <footer>
