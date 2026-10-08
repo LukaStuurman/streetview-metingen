@@ -27,6 +27,7 @@ test("AHN point heights decode valid zero and negative NAP, reject NoData", () =
   const feature = v => ({ features: [{ properties: { GRAY_INDEX: v } }] });
   assert.equal(parseAHNElevation(feature(0)), 0);
   assert.equal(parseAHNElevation(feature(-4.55)), -4.55);
+  assert.equal(parseAHNElevation({ features: [{properties: {value_list: "17.17230034"}}] }), 17.17230034);
   assert.equal(parseAHNElevation(feature("12.4")), 12.4);
   assert.equal(parseAHNElevation(feature(-9999)), null);
   assert.equal(parseAHNElevation(feature(-3.4e38)), null);
