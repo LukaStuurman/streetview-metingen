@@ -189,7 +189,7 @@ test("AHN surface method finds first obstruction, not necessarily selected dista
     origin,cameraBaseZ:3,cameraHeight:2.5,
     sampleHeight:async(lat)=>{
       const meters=(lat-origin.lat)*111132.92;
-      return meters>20?4.8:3;
+      return meters>20?5.4:3; // foreground raised nearly to camera level
     }
   });
   assert.equal(hit.status,"ok");
