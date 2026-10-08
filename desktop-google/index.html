@@ -21,6 +21,14 @@
       <h2><span>01</span> Google Street View openen</h2>
       <button id="maps-browser" class="primary full" type="button">Open Google Maps in dit programma</button>
       <button id="reload-maps" class="secondary full" type="button">Google Maps opnieuw laden</button>
+      <details class="maps-diagnostics">
+        <summary>Diagnose Street View-camerastand</summary>
+        <p class="muted">Als de camera niet wordt herkend, staat hieronder de echte URL die de ingebouwde Google Maps-browser aan de app doorgeeft. Klik in het veld, druk Ctrl+A en Ctrl+C, en stuur de URL mee bij een foutmelding. Dit is geen camerageometrie-API.</p>
+        <label for="maps-url">Actuele Google Maps-URL</label>
+        <textarea id="maps-url" rows="3" readonly placeholder="Nog geen Google Maps-adres geladen"></textarea>
+        <p id="maps-url-reason" class="status" aria-live="polite">Nog geen URL onderzocht.</p>
+        <button id="check-camera-url" type="button" class="secondary full">Controleer URL opnieuw</button>
+      </details>
       <p class="muted">Zie je een Google-cookiepagina? Kies daar zelf <strong>Alles accepteren</strong> of <strong>Alles weigeren</strong>. Je keuze wordt bewaard in de app. Mocht het scherm blijven staan, gebruik dan de knop <strong>Google Maps opnieuw laden</strong>.</p>
       <p class="muted">Zoek in de ingebouwde Google Maps-weergave een adres en klik op een blauwe Street View-lijn of foto. <strong>Geen deelcode nodig.</strong> De normale website werkt onafhankelijk van een Cloud API-sleutel. De camerakalibratie blijft handmatig.</p>
       <button id="use-iframe" class="secondary full" type="button">Alternatief: Google-insluitlink gebruiken</button>

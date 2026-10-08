@@ -33,6 +33,14 @@ In **v0.4.0** konden de knoppen **Alles accepteren** en **Alles weigeren** vastl
 - Google kan soms een apart toestemmingsvenster openen. Alleen een officieel Google-toestemmingsadres is in deze aparte browser toegestaan; dezelfde cookiesessie wordt gebruikt.
 - Gebruik bij een niet-werkende ingebouwde browser de bestaande alternatieve Google Maps-insluitlink. De app blijft afhankelijk van veranderingen aan Google's website en cookiesystemen.
 
+## Street View zichtbaar maar camerastand niet gevonden (v0.4.3)
+
+De gewone Google Maps-website kan Street View tonen zonder de actuele panoramacamerastand in het adres van de ingebouwde browser te zetten. De app kan dit adres wel lezen, maar heeft **geen toegang tot Googles interne viewer** en kan heading, pitch en zoom niet uit het beeld alleen reconstrueren.
+
+De URL-herkenning ondersteunt vanaf v0.4.3 ook panorama-adressen met `1a` en `2a` en de door Google beschreven [Maps URL voor Street View](https://developers.google.com/maps/documentation/urls/get-started#street-view-examples) (`map_action=pano` met `viewpoint`, `heading`, `pitch`, `fov`). Dit is geen rechtstreekse uitlezing van de daadwerkelijke camera.
+
+Gebruik **Diagnose Street View-camerastand** onder Google Maps openen. Daar zie je het **exacte adres dat de app via Electron ontvangt** en waarom de camerapositie al dan niet wordt herkend. Kies **Controleer URL opnieuw** na het openen van Street View. Wanneer het adres ook na draaien of bewegen géén cameraparameters bevat, is automatische cameratracking via deze route onmogelijk. Gebruik dan handmatige kalibratie of een officiële Google Maps JavaScript StreetViewPanorama-API-integratie met Cloud API-sleutel. De app slaat geen Google-beelden op.
+
 ## Camerastand automatisch bijwerken bij rondkijken (v0.4.2)
 
 Bij de ingebouwde Google Maps-weergave controleert de desktopapp **vier keer per seconde** de zichtbare navigatie-URL van de normale Google Maps-site. De app reageert ook op Electron-navigatiegebeurtenissen.

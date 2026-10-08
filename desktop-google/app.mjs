@@ -4,12 +4,13 @@ import {
 } from "../src/ahn.mjs";
 import { groundFromRay, pixelFromWorld, rayFromPixel, MAX_GROUND_DISTANCE_M } from "../src/geometry.mjs";
 import {
-  parseEmbedHtml, parseGoogleMapsViewUrl, cameraPoseChanged, viewFromFields
+  parseEmbedHtml, inspectGoogleMapsViewUrl, cameraPoseChanged, viewFromFields
 } from "./measurement-helpers.mjs";
 
 const $ = id => document.getElementById(id);
 const ui = Object.fromEntries([
-  "embed","open-maps","load","maps-browser","reload-maps","use-iframe","google-browser",
+  "embed","open-maps","load","maps-browser","reload-maps","check-camera-url",
+  "maps-url","maps-url-reason","use-iframe","google-browser",
   "lat","lng","heading","pitch","fov","height","camera-sync-status",
   "ahn","ahn-layer","ahn-status","refresh-ahn","calibration-confirmed",
   "navigate","measure","new-line","undo",
@@ -328,6 +329,8 @@ function showBrowser() {
   ui.fov.value="";
   state.lastGoogleViewUrl=null;
   state.lastGooglePose=null;
+  ui["maps-url"].value="";
+  ui["maps-url-reason"].textContent="Google Maps-browser opent…";
   ui["camera-sync-status"].textContent="URL-synchronisatie actief. Open Street View; Google bepaalt wanneer camerawijzigingen in de URL verschijnen.";
   ui["ahn-status"].textContent="Navigeer eerst naar Street View in Google Maps.";
   ui.viewer.classList.add("loaded","maps-browser");
@@ -351,7 +354,11 @@ function showIframe() {
 }
 
 function googleUrlChanged(url) {
-  if(state.display!=="maps" || !url || url===state.lastGoogleViewUrl)return;
+  if(state.display!=="maps" || !url)return;
+  // Always show the real URL, even when no Street View pose is exposed.
+  // No Google internals, panorama tiles, requests, or account data are read.
+  ui["maps-url"].value=url;
+  if(url===state.lastGoogleViewUrl)return;
   try {
     const u = new URL(url);
     if(["consent.google.com","consent.google.nl"].includes(u.hostname)) {
@@ -362,7 +369,9 @@ function googleUrlChanged(url) {
   } catch { /* An unrecognised URL cannot provide a camera pose. */ }
   state.lastGoogleViewUrl=url;
 
-  const hint=parseGoogleMapsViewUrl(url);
+  const inspected=inspectGoogleMapsViewUrl(url);
+  const hint=inspected.pose;
+  ui["maps-url-reason"].textContent=inspected.reason;
   if(!hint) {
     // Leaving Street View invalidates any camera values previously read from it.
     if(state.lastGooglePose) {
@@ -374,7 +383,7 @@ function googleUrlChanged(url) {
       state.lastGooglePose=null;
       updateTerrain();
     }
-    ui["camera-sync-status"].textContent="Geen Street View-camerastand in de huidige Google Maps-URL.";
+    ui["camera-sync-status"].textContent=inspected.reason;
     return;
   }
 
@@ -436,6 +445,12 @@ guest.addEventListener("did-navigate-in-page",event=>{
 // address-bar orientation between these events. Poll ONLY guest.getURL();
 // never inject scripts into Google's page or call undocumented Maps APIs.
 window.setInterval(pollGoogleCameraUrl,250);
+ui["check-camera-url"].addEventListener("click",()=>{
+  state.lastGoogleViewUrl=null; // show up-to-date reason, even if URL unchanged
+  pollGoogleCameraUrl();
+  ui["maps-url"].focus();
+  ui["maps-url"].select();
+});
 guest.addEventListener("did-fail-load",event=>{
   if(state.display==="maps" && event.isMainFrame)
     notice("Google Maps kon niet in de ingebouwde browser laden. Gebruik eventueel de insluitlink.",true);

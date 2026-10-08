@@ -33,46 +33,75 @@ export function viewFromFields({width,height,heading,pitch,fov}) {
 }
 
 /**
- * Parse ONLY the address-bar URL of the ordinary Google Maps webpage.
- *
- * Typical example:
- * /maps/@51.4416,5.4697,3a,75y,123.5h,100t/data=...
- * - y = approximate horizontal FOV
- * - h = compass heading clockwise from north
- * - t = tilt measured downward from vertical, with 90 = horizon
- *
- * These are UNDOCUMENTED website URL hints and are not the supported
- * Street View camera API. URL may lag behind actual mouse movements.
+ * Interpret only user-visible Google Maps URL information.
+ * Official Maps URLs can also be /maps/@?api=1&map_action=pano&viewpoint=...
+ * Google's own website URLs are undocumented and sometimes stay unchanged
+ * while Street View rotates: missing data must NEVER be synthesized.
  */
-export function parseGoogleMapsViewUrl(urlText) {
+export function inspectGoogleMapsViewUrl(urlText) {
   let url;
-  try { url = new URL(urlText); } catch { return null; }
-  if (url.protocol !== "https:" ||
-      !["www.google.com", "www.google.nl", "google.com", "google.nl"].includes(url.hostname) ||
-      !/^\/maps(?:\/|$)/.test(url.pathname)) return null;
+  try { url=new URL(urlText); }
+  catch { return {pose:null,reason:"Ongeldige Google Maps-URL.",kind:"invalid"}; }
 
-  // The tokens must come directly after 3a (not in an embedded image URL).
-  const match = url.pathname.match(
-    /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),3a(?:,([^/]+))?/
-  );
-  if (!match) return null;
-  const lat = Number(match[1]), lng = Number(match[2]);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) ||
-      Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-
-  const tokens = (match[3] || "").split(",");
-  let heading = null, pitch = null, fov = null;
-  for (const token of tokens) {
-    const m = token.match(/^(-?\d+(?:\.\d+)?)([yht])$/);
-    if (!m) continue;
-    const value = Number(m[1]);
-    if (!Number.isFinite(value)) continue;
-    if (m[2] === "y" && value >= 10 && value <= 120) fov = value;
-    if (m[2] === "h" && value >= 0 && value <= 360) heading = value;
-    if (m[2] === "t" && value >= 0 && value <= 180)
-      pitch = 90 - value;  // positive up, negative down (our camera convention)
+  if (url.protocol!=="https:" ||
+      !["www.google.com","www.google.nl","google.com","google.nl"].includes(url.hostname) ||
+      !/^\/maps(?:\/|$)/.test(url.pathname)) {
+    return {pose:null,reason:"Geen vertrouwde Google Maps-URL.",kind:"invalid"};
   }
-  return {lat, lng, heading, pitch, fov};
+  const validCoords=(lat,lng)=>Number.isFinite(lat)&&Number.isFinite(lng)&&
+    Math.abs(lat)<=90&&Math.abs(lng)<=180;
+  const normalizeHeading=value=>((value%360)+360)%360;
+
+  // Ordinary Google Maps webpage: the panorama type may be 1a, 2a or 3a.
+  // Some special panoramas use 2a; the previous parser only accepted 3a.
+  const match=url.pathname.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),\d+a(?:,([^/]+))?/);
+  if(match){
+    const lat=Number(match[1]),lng=Number(match[2]);
+    if(!validCoords(lat,lng))
+      return {pose:null,reason:"Ongeldige Street View-coördinaten.",kind:"invalid"};
+    let heading=null,pitch=null,fov=null;
+    for(const token of (match[3]||"").split(",")){
+      const m=token.match(/^(-?\d+(?:\.\d+)?)([yht])$/);
+      if(!m)continue;
+      const number=Number(m[1]);
+      if(!Number.isFinite(number))continue;
+      if(m[2]==="y"&&number>=10&&number<=120)fov=number;
+      if(m[2]==="h"&&number>=0&&number<=360)heading=number;
+      if(m[2]==="t"&&number>=0&&number<=180)pitch=90-number;
+    }
+    return {pose:{lat,lng,heading,pitch,fov},kind:"streetview-path",reason:"Street View-cameragegevens in Google Maps-adres gevonden."};
+  }
+
+  // Google's documented Maps URL action, not a private tile/metadata API.
+  if(url.searchParams.get("api")==="1" &&
+     url.searchParams.get("map_action")==="pano"){
+    const coords=url.searchParams.get("viewpoint")?.split(",");
+    if(!coords||coords.length!==2)
+      return {pose:null,kind:"pano-no-position",reason:"Street View is geopend met alleen een panorama-ID; deze URL bevat geen camerapositie."};
+    const lat=Number(coords[0]),lng=Number(coords[1]);
+    if(!validCoords(lat,lng))
+      return {pose:null,kind:"invalid",reason:"Ongeldige viewpoint-coördinaten in de Street View-URL."};
+    const q=(key,min,max)=> {
+      const raw=url.searchParams.get(key);
+      if(raw===null||raw.trim()==="")return null;
+      const n=Number(raw);
+      return Number.isFinite(n)&&n>=min&&n<=max?n:null;
+    };
+    const rawHeading=q("heading",-180,360);
+    return {
+      pose:{lat,lng,heading:rawHeading===null?null:normalizeHeading(rawHeading),
+        pitch:q("pitch",-90,90),fov:q("fov",10,120)},
+      kind:"pano-action",reason:"Google Maps-panoramalink gevonden (de camerastand is niet altijd actueel)."
+    };
+  }
+
+  return {
+    pose:null,kind:"no-pano-in-url",
+    reason:"Google Maps toont geen herkenbare panoramacamera in het huidige adres. Het Street View-beeld kan intern geopend zijn zonder de browser-URL bij te werken."
+  };
+}
+export function parseGoogleMapsViewUrl(urlText) {
+  return inspectGoogleMapsViewUrl(urlText).pose;
 }
 
 /** Track changes to actual encoded camera pose, not unrelated query strings. */
