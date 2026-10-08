@@ -61,18 +61,23 @@ export function groundFromRay(ray, cameraHeight, maxDistance = MAX_GROUND_DISTAN
   return point;
 }
 
-/** Reproject an estimated ground point when Street View rotates/zooms. */
-export function pixelFromGround(point, cameraHeight, view) {
+/** Reproject a local point (east, north, elevation) given camera NAP elevation. */
+export function pixelFromWorld(point, cameraZ, view) {
   const { width, height, heading, pitch, zoom } = view;
   const f = focalPixels(width, zoom);
-  if (!f || !(cameraHeight > 0) || !point) return null;
+  if (!f || !Number.isFinite(cameraZ) || !point || !Number.isFinite(point.z)) return null;
   const b = basis(heading, pitch);
-  const delta = { e: point.e, n: point.n, u: -cameraHeight };
+  const delta = { e: point.e, n: point.n, u: point.z - cameraZ };
   const depth = dot(delta, b.forward);
   if (!(depth > 1e-5)) return null; // Behind the camera.
   const x = width / 2 + (f * dot(delta, b.right)) / depth;
   const y = height / 2 - (f * dot(delta, b.up)) / depth;
   return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+}
+
+/** Backwards-compatible flat-ground projection. */
+export function pixelFromGround(point, cameraHeight, view) {
+  return point && pixelFromWorld({ ...point, z: 0 }, cameraHeight, view);
 }
 
 export function segmentDistance(a, b) {
