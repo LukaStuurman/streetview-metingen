@@ -1,0 +1,11 @@
+{
+  "name": "streetview-metingen",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Indicatieve afstanden tekenen en meten binnen Google Street View",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": { "node": ">=18" }
+}
