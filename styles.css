@@ -97,3 +97,19 @@ footer { font-size: 10px; line-height: 1.6; color: #758e9d; padding-top: 8px; }
   .viewer { min-height: 65vh; min-height: 65dvh; flex: auto; }
 }
 @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+
+.ahn-control {
+  border: 1px solid #356358; background: #142f31;
+  border-radius: 10px; margin-top: 14px; padding: 12px;
+}
+.checkbox-label {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin: 0 0 9px; color: #d7fff1; font-size: 12px; line-height: 1.5;
+}
+.checkbox-label input {
+  width: 17px; height: 17px; flex-shrink: 0;
+  margin: 1px 0 0; accent-color: #70dfba;
+}
+.ahn-control #ahn-status { color: #a8e4d1; margin: 8px 0; }
+.ahn-control button { margin-top: 6px; }
+.ahn-control .help:last-child { color: #9bb7b1; }
