@@ -163,8 +163,9 @@ async function updateTerrain() {
     render();
   } catch(error) {
     if(epoch!==state.terrainEpoch)return;
-    ui["ahn-status"].textContent="AHN-verzoek mislukt.";
-    notice("AHN-service niet beschikbaar: "+error.message,true);
+    const detail = error instanceof Error ? error.message : String(error);
+    ui["ahn-status"].textContent="AHN-verzoek mislukt: "+detail;
+    notice("AHN-service niet beschikbaar: "+detail,true);
   }
 }
 function switchMode(target) {
