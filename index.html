@@ -48,6 +48,18 @@
         <input id="camera-height" type="number" value="2.5" min="0.5" max="5" step="0.1">
         <p class="help">De hoogte van de Street View-camera is onbekend. Deze aanname
           beïnvloedt alle berekende afstanden.</p>
+        <div class="ahn-control">
+          <label class="checkbox-label" for="use-ahn">
+            <input id="use-ahn" type="checkbox" checked>
+            <span>AHN-maaiveldhoogtes gebruiken (DTM)</span>
+          </label>
+          <p id="ahn-status" class="help" role="status" aria-live="polite">
+            Wachten op Street View-positie…
+          </p>
+          <button id="refresh-ahn" class="outline full" type="button">AHN opnieuw ophalen</button>
+          <p class="help">Hoogtes in meters t.o.v. NAP. Alleen maaiveld: geen
+            gebouwen, bomen of dieptepunten op objecten.</p>
+        </div>
         <div class="action-grid">
           <button id="new-line" class="outline">+ Nieuwe lijn</button>
           <button id="undo" class="outline">↶ Ongedaan</button>
@@ -59,8 +71,9 @@
         <h2 id="results-heading">Resultaten <small>indicatief</small></h2>
         <div id="summary" class="summary" aria-live="polite"></div>
       </section>
-      <footer>Alleen afstanden over vlakke grond. Niet bedoeld voor landmeten,
-        hoogtebepaling, gevels of kadastrale doeleinden.</footer>
+      <footer>AHN-meting is een terreinmodel-schatting; 3D-segmenten zijn rechte lijnen
+        tussen punten. Geen gevel-/objecthoogtes of kadastrale metingen. Kijkhoek,
+        camerahoogte en AHN-opnamedatum blijven onzeker.</footer>
     </aside>
 
     <main id="viewer" class="viewer" aria-label="Street View en meetlaag">
