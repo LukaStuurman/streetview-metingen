@@ -3,6 +3,7 @@ import {
   terrainRayIntersection, horizontalDistance, spatialDistance
 } from "../src/ahn.mjs";
 import { groundFromRay, pixelFromWorld, rayFromPixel, MAX_GROUND_DISTANCE_M } from "../src/geometry.mjs";
+import { pointCoordinates } from "../src/rd.mjs";
 import {
   parseEmbedHtml, inspectGoogleMapsViewUrl, cameraPoseChanged, viewFromFields
 } from "./measurement-helpers.mjs";
@@ -12,13 +13,13 @@ const ui = Object.fromEntries([
   "embed","open-maps","load","maps-browser","reload-maps","check-camera-url",
   "maps-url","maps-url-reason","use-iframe","google-browser",
   "lat","lng","heading","pitch","fov","height","camera-sync-status",
-  "ahn","ahn-layer","ahn-status","refresh-ahn","calibration-confirmed",
+  "ahn","ahn-layer","ahn-status","refresh-ahn","point-results",
   "navigate","measure","new-line","undo",
   "clear","export","results","viewer","google-frame","overlay","notice"
 ].map(id => [id, $(id)]));
 const ctx = ui.overlay.getContext("2d");
 const AHN = new AHNClient();
-const colorSet = ["#6febbc","#ffd28c","#9fbdff","#ffacc1"];
+const colorSet = ["#f28c28","#d83c36","#ffb451","#ed695c"];
 const state = {
   loaded:false, mode:"navigate", useAHN:true,
   surfaceLayer:AHN_LAYER, display:"embed",
@@ -105,6 +106,56 @@ function summary() {
     node.append(name,v);
     ui.results.append(node);
   }
+  // Show actual per-point local and Dutch national projected coordinates.
+  // The reconstructed location is only as good as the Street View camera
+  // pose and AHN ray intersection; never present it as measured survey data.
+  const pointContainer=ui["point-results"];
+  pointContainer.replaceChildren();
+  let found=false;
+  const origin=validCalibration()?cameraLocation():null;
+  for(let li=0;li<state.lines.length;li++) {
+    for(let pi=0;pi<state.lines[li].length;pi++) {
+      const vertex=state.lines[li][pi].point;
+      const coordinates=pointCoordinates(vertex,origin,offsetLocation);
+      if(!coordinates)continue;
+      found=true;
+      const card=document.createElement("article");
+      card.className="point-card";
+      const heading=document.createElement("div");
+      heading.className="point-card-title";
+      heading.textContent="Punt "+(li+1)+"."+(pi+1);
+      const grid=document.createElement("div");
+      grid.className="point-coords";
+      const fields=[
+        ["X lokaal",format(coordinates.localX,1)+" m"],
+        ["Y lokaal",format(coordinates.localY,1)+" m"],
+        ["RD X",coordinates.rd?format(coordinates.rd.x,1)+" m":"Buiten RD-gebied"],
+        ["RD Y",coordinates.rd?format(coordinates.rd.y,1)+" m":"Buiten RD-gebied"],
+        ["Z NAP",state.useAHN?format(vertex.z,2)+" m":"—"],
+        ["Stelsel","RD New · EPSG:28992"]
+      ];
+      for(const [label,value] of fields) {
+        const cell=document.createElement("div");
+        cell.className="coord";
+        const key=document.createElement("span");
+        key.className="key";key.textContent=label;
+        const strong=document.createElement("strong");
+        strong.textContent=value;
+        cell.append(key,strong);grid.append(cell);
+      }
+      const detail=document.createElement("small");
+      detail.textContent="Lat "+coordinates.lat.toFixed(6)+
+        " / lon "+coordinates.lng.toFixed(6)+" · Indicatieve coördinaten";
+      card.append(heading,grid,detail);
+      pointContainer.append(card);
+    }
+  }
+  if(!found) {
+    const empty=document.createElement("p");
+    empty.className="point-empty";
+    empty.textContent="Nog geen meetpunten. Schakel naar Meetpunten zetten en klik in Street View.";
+    pointContainer.append(empty);
+  }
 }
 function drawTag(text,x,y,color,height) {
   ctx.save();
@@ -149,7 +200,13 @@ function render() {
     projected.forEach((p,i)=>{
       if(!p||p.x<0||p.x>rect.width||p.y<0||p.y>rect.height)return;
       ctx.beginPath();ctx.arc(p.x,p.y,6,0,Math.PI*2);
-      ctx.fillStyle=color;ctx.fill();ctx.strokeStyle="#0b202a";ctx.lineWidth=2;ctx.stroke();
+      ctx.fillStyle=color;ctx.fill();ctx.strokeStyle="#251b19";ctx.lineWidth=2;ctx.stroke();
+      const coords=pointCoordinates(vertices[i].point,cameraLocation(),offsetLocation);
+      const pointId="P"+(idx+1)+"."+(i+1);
+      const rdText=coords?.rd
+        ? " · RD "+Math.round(coords.rd.x)+" / "+Math.round(coords.rd.y)
+        : " · X "+format(vertices[i].point.e,1)+" / Y "+format(vertices[i].point.n,1);
+      drawTag(pointId+rdText,p.x,p.y-15,color,rect);
       if(state.useAHN) {
         const vertex=vertices[i].point;
         const objectLabel=state.surfaceLayer===AHN_SURFACE_LAYER &&
@@ -195,10 +252,8 @@ async function updateTerrain() {
 }
 function switchMode(target) {
   if(target==="measure") {
-    if(!state.loaded)return notice("Open eerst een gedeelde Google Street View-link.",true);
+    if(!state.loaded)return notice("Open eerst Google Street View.",true);
     if(!validCalibration())return notice("Controleer alle cameravelden.",true);
-    if(!ui["calibration-confirmed"].checked)
-      return notice("Bevestig eerst de handmatige camerakalibratie.",true);
     if(state.useAHN&&state.baseZ===null)return notice("Wacht tot AHN is geladen of zet AHN uit.",true);
     if(state.mode!=="measure")resetMeasurements(
       state.surfaceLayer===AHN_SURFACE_LAYER && state.useAHN
@@ -206,8 +261,7 @@ function switchMode(target) {
         : "Meetbeeld vergrendeld. Klik op de grond om punten te plaatsen."
     );
   } else if(state.mode==="measure") {
-    ui["calibration-confirmed"].checked=false;
-    resetMeasurements("Navigatiemodus: metingen gewist. Kalibreer opnieuw na draaien, zoomen of verplaatsen.");
+    resetMeasurements("Navigatiemodus: metingen gewist. Controleer de camerastand na draaien of verplaatsen.");
   }
   state.mode=target;
   const isMeasure=target==="measure";
@@ -284,20 +338,24 @@ function undo() {
 }
 function exportCsv() {
   const lines=[["lijn","punt","breedtegraad","lengtegraad","NAP_hoogte_m",
-    "AHN_model","maaiveld_DTM_NAP_m","DSM_min_DTM_m","oost_meter","noord_meter"].join(";")];
+    "AHN_model","maaiveld_DTM_NAP_m","DSM_min_DTM_m",
+    "lokaal_X_meter","lokaal_Y_meter","RD_X_meter","RD_Y_meter","RD_EPSG"].join(";")];
   const origin=cameraLocation();
   for(let line=0;line<state.lines.length;line++){
     for(let i=0;i<state.lines[line].length;i++){
       const p=state.lines[line][i].point;
-      const loc=offsetLocation(origin,p.e,p.n);
-      if(!loc)continue;
-      lines.push([line+1,i+1,loc.lat.toFixed(8),loc.lng.toFixed(8),
-        state.useAHN?p.z.toFixed(3):"",
+      const coords=pointCoordinates(p,origin,offsetLocation);
+      if(!coords)continue;
+      lines.push([line+1,i+1,coords.lat.toFixed(8),coords.lng.toFixed(8),
+        state.useAHN?p.z.toFixed(2):"",
         state.useAHN?state.surfaceLayer:"vlak",
-        state.useAHN&&Number.isFinite(p.groundZ)?p.groundZ.toFixed(3):
-          state.useAHN&&state.surfaceLayer===AHN_LAYER?p.z.toFixed(3):"",
-        state.useAHN&&Number.isFinite(p.objectHeight)?p.objectHeight.toFixed(3):"",
-        p.e.toFixed(3),p.n.toFixed(3)].join(";"));
+        state.useAHN&&Number.isFinite(p.groundZ)?p.groundZ.toFixed(2):
+          state.useAHN&&state.surfaceLayer===AHN_LAYER?p.z.toFixed(2):"",
+        state.useAHN&&Number.isFinite(p.objectHeight)?p.objectHeight.toFixed(2):"",
+        coords.localX.toFixed(2),coords.localY.toFixed(2),
+        coords.rd?coords.rd.x.toFixed(2):"",
+        coords.rd?coords.rd.y.toFixed(2):"",
+        coords.rd?"EPSG:28992":""].join(";"));
     }
   }
   if(lines.length===1)return notice("Plaats eerst meetpunten om te exporteren.",true);
@@ -336,7 +394,6 @@ function showBrowser() {
   ui.viewer.classList.add("loaded","maps-browser");
   const guest=ui["google-browser"];
   if(!guest.getAttribute("src"))guest.setAttribute("src","https://www.google.com/maps");
-  ui["calibration-confirmed"].checked=false;
   updateTerrain();
 }
 
@@ -349,7 +406,6 @@ function showIframe() {
   ui["camera-sync-status"].textContent="Insluitmodus: geen live camera-URL beschikbaar. Handmatige kalibratie vereist.";
   ui.viewer.classList.remove("maps-browser");
   state.loaded=Boolean(ui["google-frame"].getAttribute("src"));
-  ui["calibration-confirmed"].checked=false;
   updateTerrain();
 }
 
@@ -377,7 +433,6 @@ function googleUrlChanged(url) {
     if(state.lastGooglePose) {
       if(state.mode==="measure")switchMode("navigate");
       resetMeasurements();
-      ui["calibration-confirmed"].checked=false;
       ui.lat.value="";ui.lng.value="";
       ui.heading.value="";ui.pitch.value="";ui.fov.value="";
       state.lastGooglePose=null;
@@ -393,8 +448,6 @@ function googleUrlChanged(url) {
   state.lastGooglePose=hint;
   if(state.mode==="measure")switchMode("navigate");
   resetMeasurements();
-  ui["calibration-confirmed"].checked=false;
-
   // Missing parameters must never retain calibration from a previous view.
   ui.lat.value=String(hint.lat);
   ui.lng.value=String(hint.lng);
@@ -479,7 +532,6 @@ ui.load.addEventListener("click",()=>{
   ui.viewer.classList.add("loaded");
   ui.lat.value=parsed.location ? String(parsed.location.lat) : "";
   ui.lng.value=parsed.location ? String(parsed.location.lng) : "";
-  ui["calibration-confirmed"].checked=false;
   if(Number.isFinite(parsed.heading)) ui.heading.value=String(parsed.heading);
   // Pitch is deliberately NOT inferred from undocumented Google embed URL internals.
   switchMode("navigate");
@@ -511,7 +563,6 @@ ui["ahn-layer"].addEventListener("change",()=>{
 });
 for(const id of ["lat","lng","height","heading","pitch","fov"]) {
   ui[id].addEventListener("change",()=>{
-    ui["calibration-confirmed"].checked=false;
     if(state.mode==="measure")switchMode("navigate");
     resetMeasurements("Camerakalibratie gewijzigd: oude meetpunten gewist.");
     if(["lat","lng"].includes(id))updateTerrain();
