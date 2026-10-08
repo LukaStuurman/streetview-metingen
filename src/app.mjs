@@ -309,8 +309,10 @@ async function addMeasurement(event) {
       }
       return;
     } finally {
-      if (state.currentRequest === controller) state.currentRequest = null;
-      state.pending = false;
+      if (state.currentRequest === controller) {
+        state.currentRequest = null;
+        state.pending = false;
+      }
     }
   } else {
     const flat = groundFromRay(ray, state.cameraHeight);
@@ -380,9 +382,6 @@ function attachPanorama() {
   });
   state.panorama.addListener("pano_changed", () => {
     const id = state.panorama.getPano();
-    if (state.panoId && id && state.panoId !== id) {
-      clearLines("Nieuw panorama geopend. De oude meting is gewist om fouten door hoogteverschil te voorkomen.");
-    }
     const panoramaChanged = state.panoId && id && state.panoId !== id;
     state.panoId = id;
     const previousPosition = state.position && { ...state.position };
@@ -402,6 +401,8 @@ function attachPanorama() {
       message("Er is op deze locatie geen Street View-panorama gevonden (" + status + ").", true);
     }
   });
+  // Some Street View implementations expose initial position before listeners run.
+  trackPanoramaPosition();
   setMode("navigate");
   elements.go.disabled = false;
   elements.measure.disabled = false;
