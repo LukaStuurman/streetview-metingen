@@ -37,8 +37,8 @@ function validCalibration() {
     Number.isFinite(lat)&&lat>=-90&&lat<=90 &&
     Number.isFinite(lng)&&lng>=-180&&lng<=180 &&
     Number.isFinite(h)&&h>=0.5&&h<=5 &&
-    Number.isFinite(fov)&&fov>=15&&fov<=120 &&
-    Number.isFinite(pitch)&&Math.abs(pitch)<=85 &&
+    Number.isFinite(fov)&&fov>=10&&fov<=120 &&
+    Number.isFinite(pitch)&&Math.abs(pitch)<=90 &&
     Number.isFinite(heading)&&heading>=0&&heading<=360;
 }
 function cameraLocation() {return {lat:n("lat"),lng:n("lng")};}
