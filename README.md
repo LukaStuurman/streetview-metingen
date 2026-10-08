@@ -13,7 +13,7 @@ Dit is een **Windows-desktopversie** die echte Google Street View-beelden toont 
 3. Start de portable `.exe` of het installatieprogramma.
 4. Ga in je browser naar [Google Maps](https://www.google.com/maps) en schakel naar de gewenste Street View-foto.
 5. Gebruik **Delen → Een kaart insluiten → HTML kopiëren**. Plak de complete `<iframe ...></iframe>` HTML in de desktopapp en kies **Originele Street View tonen**.
-6. De app leest uit sommige door Google gegenereerde URLs de opgenomen cameracoördinaten en heading als *voorstel*; deze zijn niet altijd beschikbaar of correct. Controleer de positie en **kalibreer heading, pitch en horizontale beeldhoek** op het zichtbare beeld. De standaardwaarden zijn alleen aannames.
+6. De app leest uit sommige door Google gegenereerde URLs cameracoördinaten en heading als *voorstel*; deze zijn niet altijd beschikbaar of correct. Controleer de positie, **kalibreer heading, pitch en horizontale beeldhoek** op het zichtbare beeld en vink aan dat je de camerainstellingen hebt gecontroleerd. Zonder deze expliciete bevestiging start de meetfunctie niet. Bij ontbrekende coördinaten moeten die eerst handmatig worden ingevuld. De standaardwaarden zijn alleen aannames.
 7. Kies optioneel **AHN-maaiveldhoogtes** voor hoogteverschillen. AHN-terreinhoogtes worden zonder sleutel live bij PDOK opgevraagd.
 8. Kies **Meetpunten zetten**, plaats punten op zichtbare grond en lees de geschatte horizontale afstand, rechte 3D-lengte en AHN-hoogte af.
 9. Gebruik **Export CSV** om alleen berekende meetpunten op te slaan, niet de Google-afbeeldingen.
