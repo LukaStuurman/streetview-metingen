@@ -123,12 +123,15 @@ export async function terrainRayIntersection({
         if (mid.delta > 0) left = mid;
         else right = mid;
       }
-      // Select a sampled point near the crossing, not the camera-plane estimate.
-      const closest = Math.abs(left.delta) < Math.abs(right.delta) ? left : right;
+      // Interpolate along the bracket so the 3D point remains exactly on the
+      // original Street View ray. z is the interpolated AHN-derived height.
+      const den = left.delta - right.delta;
+      const fraction = den > 0 ? Math.min(1, Math.max(0, left.delta / den)) : 0.5;
+      const r = left.distance + fraction * (right.distance - left.distance);
       return {
         status: "ok",
-        point: { e: closest.e, n: closest.n, z: closest.z },
-        distance: closest.distance
+        point: { e: eastUnit * r, n: northUnit * r, z: cameraZ + raySlope * r },
+        distance: r
       };
     }
     previous = next;
