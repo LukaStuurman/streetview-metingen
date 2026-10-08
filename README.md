@@ -16,6 +16,21 @@
 
 **Als de ingebouwde Google Maps-website door Google of het netwerk wordt geblokkeerd:** klik op **Alternatief: Google-insluitlink gebruiken**. Open in je reguliere browser Google Maps Street View, kies **Delen → Een kaart insluiten → HTML kopiëren**, plak die HTML en gebruik **Originele Street View tonen**. Deze optie blijft bestaan.
 
+## Waarom een ver Street View-punt dichterbij kan worden geplaatst (v0.5.1)
+
+De app kan uit een enkele Street View-foto geen echte **afstand tot het aangeklikte object** afleiden. De 3D-berekening projecteert een kijkstraal en zoekt in de AHN DTM/DSM de **eerste** plek waar die straal een oppervlak raakt. Een dichterbij gelegen straatvlak, boom of dak (in DSM) kan daarom eerder worden geraakt dan het verre object waar je op klikt. Dit is geen fout in de RD-projectie: de X/Y-coördinaten worden berekend vanuit die al onjuist gekozen afstand.
+
+**Verbeteringen v0.5.1:**
+
+1. Het bereik van de automatische AHN-snijding en de vlakke grondberekening is vergroot van **150 naar 500 m**.
+2. Bij ieder meetpunt zie je **Afstand tot camera** en **Bepaling**: *Eerste AHN-snijpunt* of *Vlakke grond*.
+3. Met **Afstand corrigeren** kun je de **werkelijke horizontale afstand**, als je die uit een andere bron kent, invullen. De positie wordt exact op dezelfde kijkstraal naar die afstand verplaatst en lokale X/Y en benaderde RD X/Y worden opnieuw berekend.
+4. De Z-waarde van een handmatig gecorrigeerd punt wordt uit **camerahoogte en kijkstraal** afgeleid, **niet rechtstreeks uit AHN**. Het programma toont bij een beschikbare AHN-waarde de afwijking tussen die kijkstraalhoogte en het oppervlak op de nieuwe locatie.
+5. Bij een kijkstraal dicht langs de horizon verschijnt een waarschuwing dat een kleine fout in camerakanteling/beeldhoek grote verschillen in afstand en X/Y veroorzaakt.
+6. De CSV-export vermeldt voortaan de gebruikte afstand, de bepaling van de diepte en of Z uit AHN of de kijkstraal komt.
+
+**Belangrijk:** *Afstand corrigeren* maakt geen automatische dieptemeting mogelijk. Zonder bekende afstand, georeferentiepunten of een echte Street View-dieptebron blijft de objectlocatie onzeker. Er worden **geen externe of verborgen Google-diepte-API's** gebruikt. Ook de handmatig gecorrigeerde RD-coördinaten zijn hooguit indicatief: het resultaat hangt af van de camerakalibratie.
+
 ## Techbase-kleuren en puntcoördinaten (v0.5.0)
 
 De Windows-app gebruikt een donker Techbase-geïnspireerd thema met **oranje als primaire kleur** en **rood voor accenten, meetlijnen en waarschuwingen**. Het kleurenpalet wordt met CSS-variabelen beheerd in `desktop-google/styles.css`.

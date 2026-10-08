@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { wgs84ToRD, pointCoordinates } from "../src/rd.mjs";
 import { offsetLocation } from "../src/ahn.mjs";
+import { pointAtHorizontalDistance } from "../src/geometry.mjs";
 
 const approx=(actual,expected,delta=0.1)=>assert.ok(
   Math.abs(actual-expected)<=delta,
@@ -68,4 +69,22 @@ test("desktop removes calibration checkbox and includes Techbase and RD export",
   assert.ok(css.includes("--tb-orange:"));
   assert.ok(css.includes("--tb-red:"));
   assert.ok(pack.build.files.includes("src/rd.mjs"),"RD helper must ship in EXE");
+});
+
+test("far manual range shifts RD X/Y away from panorama origin instead of retaining near coordinates",()=>{
+  const origin={lat:52.1551744,lng:5.38720621};
+  const ray={e:1,n:0,u:-0.03};
+  const near=pointCoordinates(pointAtHorizontalDistance(ray,12,4.5),origin,offsetLocation);
+  const far=pointCoordinates(pointAtHorizontalDistance(ray,180,4.5),origin,offsetLocation);
+  assert.ok(far.rd.x > near.rd.x + 165);
+  assert.ok(Math.abs(far.rd.y-near.rd.y) < 1);
+});
+
+test("desktop CSV preserves provenance for manually ranged points",()=>{
+  const app=readFileSync(new URL("../desktop-google/app.mjs",import.meta.url),"utf8");
+  for(const field of ["afstand_camera_m","diepte_methode","AHN_hoogteverschil_m","hoogtebron"]){
+    assert.ok(app.includes(field),field);
+  }
+  assert.ok(app.includes('pointAtHorizontalDistance('));
+  assert.ok(app.includes('correctPointRange('));
 });

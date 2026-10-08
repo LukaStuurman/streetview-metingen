@@ -3,7 +3,7 @@
  * Street View supplies heading, pitch and zoom but NO per-pixel depth.
  * All values are estimates; not suitable for survey/cadastral measurements.
  */
-export const MAX_GROUND_DISTANCE_M = 150;
+export const MAX_GROUND_DISTANCE_M = 500;
 const DEG = Math.PI / 180;
 
 export function horizontalFov(zoom) {
@@ -89,4 +89,34 @@ export function lineLength(rays, cameraHeight) {
   const points = rays.map(ray => groundFromRay(ray, cameraHeight));
   if (points.some(p => p === null)) return null;
   return points.slice(1).reduce((sum, p, i) => sum + segmentDistance(points[i], p), 0);
+}
+
+/**
+ * Reconstruct a 3D point at a USER-SUPPLIED horizontal range along the
+ * clicked camera ray (not automatically derived from the Street View image).
+ * The output Z is the camera-ray elevation, not an AHN terrain height.
+ * This is the only sound way to respect a manually known distance: changing
+ * XY but preserving the original height would move the point off its pixel.
+ */
+export function pointAtHorizontalDistance(ray, rangeM, cameraZ,
+  maxDistance = MAX_GROUND_DISTANCE_M) {
+  if(!ray || ![ray.e,ray.n,ray.u,rangeM,cameraZ,maxDistance].every(Number.isFinite) ||
+     rangeM < 0.5 || rangeM > maxDistance)return null;
+  const horizontal=Math.hypot(ray.e,ray.n);
+  if(horizontal < 1e-9)return null;
+  const scale=rangeM/horizontal;
+  const point={
+    e:ray.e*scale,
+    n:ray.n*scale,
+    z:cameraZ + ray.u*scale
+  };
+  return Object.values(point).every(Number.isFinite)?point:null;
+}
+
+/** Near-horizon ground clicks are extremely sensitive to pitch/FOV errors. */
+export function rayDepressionDegrees(ray){
+  if(!ray || ![ray.e,ray.n,ray.u].every(Number.isFinite))return null;
+  const h=Math.hypot(ray.e,ray.n);
+  if(h<1e-9)return null;
+  return Math.atan2(-ray.u,h)/DEG;
 }

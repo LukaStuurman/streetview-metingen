@@ -164,6 +164,39 @@ test("upward ray can intersect uphill ground, unlike a flat-ground ray", async (
   near(result.point.n, 2.5 / 0.15, 1);
 });
 
+test("AHN terrain intersection can reach a genuinely distant flat surface",async()=>{
+  const slopeRay={e:0,n:1,u:-2.5/300};
+  const far=await terrainRayIntersection({
+    ray:slopeRay,origin:{lat:52,lng:5},
+    cameraBaseZ:3,cameraHeight:2.5,maxDistance:500,
+    sampleHeight:async()=>3
+  });
+  assert.equal(far.status,"ok");
+  near(far.point.n,300,0.1);
+  near(far.point.z,3,0.01);
+  const limited=await terrainRayIntersection({
+    ray:slopeRay,origin:{lat:52,lng:5},
+    cameraBaseZ:3,cameraHeight:2.5,maxDistance:150,
+    sampleHeight:async()=>3
+  });
+  assert.equal(limited.status,"out-of-range");
+});
+
+test("AHN surface method finds first obstruction, not necessarily selected distant image object",async()=>{
+  const origin={lat:52,lng:5};
+  const hit=await terrainRayIntersection({
+    ray:{e:0,n:1,u:-2.5/150},
+    origin,cameraBaseZ:3,cameraHeight:2.5,
+    sampleHeight:async(lat)=>{
+      const meters=(lat-origin.lat)*111132.92;
+      return meters>20?5.4:3; // foreground raised nearly to camera level
+    }
+  });
+  assert.equal(hit.status,"ok");
+  assert.ok(hit.point.n>15&&hit.point.n<25,
+    "ray first intersects raised foreground surface");
+});
+
 test("no-data, out of range and abort never manufacture a height", async () => {
   const common = { ray, origin, cameraBaseZ: 3, cameraHeight: 2.5 };
   assert.equal((await terrainRayIntersection({

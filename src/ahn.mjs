@@ -88,7 +88,7 @@ export class AHNClient {
  */
 export async function terrainRayIntersection({
   ray, origin, cameraBaseZ, cameraHeight, sampleHeight, signal,
-  maxDistance = 150
+  maxDistance = 500
 }) {
   if (!ray || !origin || !Number.isFinite(cameraBaseZ) ||
       !(cameraHeight > 0) || typeof sampleHeight !== "function") {
@@ -103,7 +103,8 @@ export async function terrainRayIntersection({
   const raySlope = ray.u / horizontal;
   const cameraZ = cameraBaseZ + cameraHeight;
   let previous = { distance: 0, delta: cameraHeight };
-  const stops = [2, 4, 6, 8, 10, 15, 20, 30, 40, 55, 70, 90, 115, 150]
+  const stops = [2, 4, 6, 8, 10, 15, 20, 30, 40, 55, 70, 90, 115, 150,
+    200, 250, 300, 375, 450, 500]
     .filter(d => d <= maxDistance);
   if (stops[stops.length - 1] !== maxDistance) stops.push(maxDistance);
   async function sampleAt(distance) {

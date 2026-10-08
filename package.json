@@ -1,6 +1,6 @@
 {
   "name": "streetview-metingen",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "type": "module",
   "description": "Techbase Street View meetapp met AHN DTM/DSM, lokale XY en RD (EPSG:28992) coördinaten",

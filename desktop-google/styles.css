@@ -149,3 +149,39 @@ footer p { margin: 4px 0 11px; }
 .viewer.maps-browser #google-frame { display: none; }
 .viewer.locked #google-browser { pointer-events: none; }
 @media (max-width: 1150px) { .tools { width: 350px; min-width: 350px; padding: 18px; } }
+
+
+.range-correction {
+  margin-top: 10px;
+  border-top: 1px solid var(--tb-border);
+  padding-top: 9px;
+}
+.range-explanation {
+  color: var(--tb-muted);
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 0 0 8px;
+}
+.range-actions {
+  display: flex;
+  gap: 7px;
+}
+.range-actions input[type=number] {
+  flex: 1;
+  min-width: 0;
+}
+.range-apply {
+  flex: 0 0 auto;
+  min-width: 115px;
+  background: var(--tb-orange);
+  border-color: var(--tb-orange);
+  color: #1a1010;
+  font-weight: 800;
+}
+.range-apply:hover { background: var(--tb-orange-hover); }
+.manual-range-warning {
+  margin: 8px 0 0;
+  color: #ffc38d;
+  font-size: 10px;
+  line-height: 1.6;
+}
