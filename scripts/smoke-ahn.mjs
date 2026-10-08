@@ -37,7 +37,7 @@ try {
       const u=variant==="large"?AHN_WMS+"?"+q:q;
       const result=await get(u);
       let z=null;try{z=parseAHNElevation(JSON.parse(result.raw));}catch{}
-      console.log("PDOK",name,variant,result.status,"CORS",result.cors,"NAP",z,"data",result.raw.slice(0,200));
+      console.log("PDOK",name,variant,result.status,"CORS",result.cors,"NAP",z,"data",result.raw.slice(0,1400));
       found ||= z !== null;
     }
   }
