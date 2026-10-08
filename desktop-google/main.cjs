@@ -42,6 +42,20 @@ async function launch() {
       webviewTag: true
     }
   });
+  app.on("web-contents-created", (_event, guestContents) => {
+    if (guestContents.getType() !== "webview") return;
+    guestContents.setWindowOpenHandler(() => ({ action:"deny" }));
+    // Remote Google Maps guest is a real web page but may not navigate to
+    // unrelated hosts or access privileged Electron app internals.
+    guestContents.on("will-navigate", (event, address) => {
+      try {
+        const uri = new URL(address);
+        if (uri.protocol === "https:" && uri.hostname === "www.google.com" &&
+            uri.pathname.startsWith("/maps")) return;
+      } catch {}
+      event.preventDefault();
+    });
+  });
   main.webContents.on("will-attach-webview", (event, webPreferences, params) => {
     delete webPreferences.preload;
     webPreferences.nodeIntegration = false;
