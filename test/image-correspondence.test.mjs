@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {matchImagePatch,epipolarCandidates} from "../src/image-correspondence.mjs";
+import {matchImagePatch,epipolarCandidates,matchAndTriangulateViews} from "../src/image-correspondence.mjs";
 import {offsetLocation} from "../src/ahn.mjs";
 import {rayFromPixel,pointAtHorizontalDistance,pixelFromWorld} from "../src/geometry.mjs";
 
@@ -105,4 +105,38 @@ test("no second camera height, invalid images or out of range are rejected",()=>
     cameraA:{...cam,cameraZ:5},cameraB:cam,
     sourcePoint:{x:320,y:240}
   }),[]);
+});
+
+
+test("two authorized screenshot buffers can recover far local/RD X/Y automatically",()=>{
+  const origin={lat:52.1551744,lng:5.38720621};
+  const next=offsetLocation(origin,10,0);
+  const view={width:W,height:H,heading:0,pitch:0,zoom:1};
+  const cameraA={...origin,cameraZ:5,view};
+  const cameraB={...next,cameraZ:5,view};
+  const result=matchAndTriangulateViews({
+    source:image(sample),
+    target:make(-13,0),
+    sourcePoint:{x:80,y:55},
+    cameraA,cameraB
+  });
+  assert.equal(result.status,"ok",JSON.stringify(result));
+  assert.ok(result.matchScore>.9);
+  assert.ok(result.point.rd);
+  assert.ok(result.point.n>47&&result.point.n<80,
+    "Expected distant northward object, got "+result.point.n);
+  assert.ok(Math.abs(result.point.e)<2);
+});
+
+test("no screenshot calibration or authorized camera datum gives no coordinate",()=>{
+  const origin={lat:52,lng:5};
+  const next=offsetLocation(origin,12,0);
+  const view={width:W,height:H,heading:0,pitch:0,zoom:1};
+  const invalid=matchAndTriangulateViews({
+    source:image(sample),target:make(-8,0),
+    sourcePoint:{x:80,y:55},
+    cameraA:{...origin,view},
+    cameraB:{...next,cameraZ:4,view}
+  });
+  assert.equal(invalid.status,"no-epipolar-path");
 });
