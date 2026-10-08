@@ -16,6 +16,19 @@
 
 **Als de ingebouwde Google Maps-website door Google of het netwerk wordt geblokkeerd:** klik op **Alternatief: Google-insluitlink gebruiken**. Open in je reguliere browser Google Maps Street View, kies **Delen → Een kaart insluiten → HTML kopiëren**, plak die HTML en gebruik **Originele Street View tonen**. Deze optie blijft bestaan.
 
+## Onderzoek: éénklik-beeldmatching met naburige panorama's
+
+In `src/image-correspondence.mjs` staat een **afzonderlijke, geteste experimentele beeldmatcher** voor twee afbeeldingsbuffers waarvan de automatische verwerking is toegestaan. Deze werkt met het originele klikpunt, twee volledige bekende camerastandpunten en een geometrisch begrensde zoeklijn (epipolaire lijn). Hij vergelijkt kleine beeldgebieden met genormaliseerde kruiscorrelatie (NCC) en verschillende schalen.
+
+De functie `matchAndTriangulateViews({source,target,sourcePoint,cameraA,cameraB})` kan **uit geschikte invoerbeelden** een beeldmatch vinden en via de al bestaande multi-view-triangulatie RD X/Y bepalen. Ze weigert onder meer:
+- lage textuur (lucht, effen muren), slechte overeenkomst en dubbelzinnige patronen;
+- een ongeldige beeldhoek, ontbrekende gemeenschappelijke camerahoogte en beelden die niet bij de projectie passen;
+- onmogelijke of geometrisch ongunstige kijklijnsnijdingen.
+
+**Nog geen gebruikersknop of volautomatische Street View:** de gewone Google Maps-browser levert geen gedocumenteerde, programmeerbare lijst van haar naburige panorama's, volledige betrouwbare camera-informatie of een voor externe beeldanalyse toegestane beeldbron. Electron `webview.capturePage()` en `webview.sendInputEvent()` bestaan technisch wel, maar automatisering van navigatie en screenshots in een Google Maps-website zou ongedocumenteerd en kwetsbaar zijn, en het afleiden van geografische infrastructuurgegevens uit de beelden wordt door de [Google Maps Platform EEA Terms](https://cloud.google.com/terms/maps-platform/eea) beperkt. Ook het feit dat beeldpixels slechts tijdelijk in het geheugen staan, verandert dit niet vanzelf.
+
+Om er een betrouwbare **éénklikfunctie** van te maken is een **geschikte, voor beeldanalyse gelicentieerde panorama-/camera-provider** nodig. Die provider moet minimaal naburige camerastandpunten met pose en renderbare beelden leveren. Totdat die bestaat, blijft `matchAndTriangulateViews` intern: er is **geen automatische Google Street View-matching** in de bestaande Windows-release. De module doet geen netwerkverzoeken, screenshots, permanente beeldopslag of website-automatisering.
+
 ## Triangulatie met meerdere naastgelegen Street View-opnamen (v0.6.0)
 
 Een enkele Street View-kijkstraal bepaalt geen objectdiepte. Met twee of meer **verschillende camerastandpunten**, gericht op **precies hetzelfde herkenbare punt**, kun je de horizontale positie wél schatten via de snijding van kijkrichtingen. Deze modus gebruikt **de camera-locaties en de X/Y-richting van de aangeklikte pixels**, niet het eerste AHN-snijpunt; voor X/Y is camerahoogte niet nodig.
