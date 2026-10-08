@@ -41,7 +41,9 @@ export function buildAHNUrl(lat, lng) {
 
 export function parseAHNElevation(json) {
   const props = json?.features?.[0]?.properties;
-  const value = props?.GRAY_INDEX;
+  // Current PDOK AHN WMS supplies 'value_list' as a numeric string.
+  // Older GeoServer AHN instances supplied 'GRAY_INDEX'.
+  const value = props?.value_list ?? props?.GRAY_INDEX;
   if (value === undefined || value === null || value === "") return null;
   const z = Number(value);
   // Reject common raster no-data sentinels, infinity and corrupt responses.
