@@ -5,6 +5,8 @@
  */
 export const AHN_WMS = "https://service.pdok.nl/rws/ahn/wms/v1_0";
 export const AHN_LAYER = "dtm_05m";
+export const AHN_SURFACE_LAYER = "dsm_05m";
+export const AHN_LAYERS = Object.freeze([AHN_LAYER, AHN_SURFACE_LAYER]);
 const EARTH_RADIUS = 6378137;
 const RAD = Math.PI / 180;
 
@@ -26,12 +28,13 @@ export function mercatorMeters(lat, lng) {
 }
 
 /** Query a ~1m square surrounding one pixel, in CRS EPSG:3857 (no axis-order trap). */
-export function buildAHNUrl(lat, lng) {
+export function buildAHNUrl(lat, lng, layer = AHN_LAYER) {
+  if (!AHN_LAYERS.includes(layer)) throw new RangeError("Ongeldige AHN-laag");
   const p = mercatorMeters(lat, lng);
   if (!p) return null;
   const qs = new URLSearchParams({
     SERVICE: "WMS", VERSION: "1.3.0", REQUEST: "GetFeatureInfo",
-    LAYERS: AHN_LAYER, QUERY_LAYERS: AHN_LAYER,
+    LAYERS: layer, QUERY_LAYERS: layer,
     STYLES: "", FORMAT: "image/png", INFO_FORMAT: "application/json",
     CRS: "EPSG:3857", WIDTH: "3", HEIGHT: "3", I: "1", J: "1",
     BBOX: [p.x - 1, p.y - 1, p.x + 1, p.y + 1].join(",")
@@ -59,11 +62,12 @@ export class AHNClient {
     this.cache = new Map();
   }
   clear() { this.cache.clear(); }
-  async height(lat, lng, signal) {
+  async height(lat, lng, signal, layer = AHN_LAYER) {
     if (signal?.aborted) throw new DOMException("AHN-opvraag afgebroken", "AbortError");
-    const key = lat.toFixed(6) + "/" + lng.toFixed(6);
+    if (!AHN_LAYERS.includes(layer)) throw new RangeError("Ongeldige AHN-laag");
+    const key = layer + "/" + lat.toFixed(6) + "/" + lng.toFixed(6);
     if (this.cache.has(key)) return this.cache.get(key);
-    const url = buildAHNUrl(lat, lng);
+    const url = buildAHNUrl(lat, lng, layer);
     if (!url) return null;
     const response = await this.fetchFn(url, { signal, mode: "cors" });
     if (!response.ok) throw new Error("AHN HTTP " + response.status);
