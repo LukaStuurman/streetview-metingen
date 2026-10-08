@@ -1,0 +1,50 @@
+name: Publish Windows v0.4.2 camera sync
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-windows-v0.4.2.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Electron
+        run: npm install --no-audit --no-fund
+      - name: Test Street View URL camera synchronization
+        run: npm test
+      - name: Check live AHN DTM/DSM availability (non-blocking)
+        run: node scripts/smoke-ahn.mjs
+        continue-on-error: true
+      - name: Build Windows installer and portable EXE
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist:win
+      - name: Archive Windows executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: streetview-metingen-windows-v0.4.2
+          path: dist/*.exe
+          if-no-files-found: error
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -d '' executables < <(find dist -maxdepth 1 -type f -name '*.exe' -print0)
+          if [ "${#executables[@]}" -ne 2 ]; then
+            echo "Expected Windows installer and portable EXE; got ${#executables[@]}" >&2
+            exit 1
+          fi
+          for file in "${executables[@]}"; do sha256sum "$file"; done
+          gh release create v0.4.2 "${executables[@]}" \
+            --target "$GITHUB_SHA" \
+            --title "Streetview Metingen v0.4.2 — automatische camerakalibratie" \
+            --notes-file RELEASE_NOTES_v0.4.2.md \
+            --latest
