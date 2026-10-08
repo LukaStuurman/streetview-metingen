@@ -1,11 +1,18 @@
-import { AHNClient, offsetLocation, terrainRayIntersection, horizontalDistance, spatialDistance } from "../src/ahn.mjs";
+import {
+  AHNClient, AHN_LAYER, AHN_SURFACE_LAYER, offsetLocation,
+  terrainRayIntersection, horizontalDistance, spatialDistance
+} from "../src/ahn.mjs";
 import { groundFromRay, pixelFromWorld, rayFromPixel, MAX_GROUND_DISTANCE_M } from "../src/geometry.mjs";
-import { parseEmbedHtml, viewFromFields } from "./measurement-helpers.mjs";
+import {
+  parseEmbedHtml, parseGoogleMapsViewUrl, viewFromFields
+} from "./measurement-helpers.mjs";
 
 const $ = id => document.getElementById(id);
 const ui = Object.fromEntries([
-  "embed","open-maps","load","lat","lng","heading","pitch","fov","height",
-  "ahn","ahn-status","refresh-ahn","calibration-confirmed","navigate","measure","new-line","undo",
+  "embed","open-maps","load","maps-browser","use-iframe","google-browser",
+  "lat","lng","heading","pitch","fov","height",
+  "ahn","ahn-layer","ahn-status","refresh-ahn","calibration-confirmed",
+  "navigate","measure","new-line","undo",
   "clear","export","results","viewer","google-frame","overlay","notice"
 ].map(id => [id, $(id)]));
 const ctx = ui.overlay.getContext("2d");
@@ -13,8 +20,9 @@ const AHN = new AHNClient();
 const colorSet = ["#6febbc","#ffd28c","#9fbdff","#ffacc1"];
 const state = {
   loaded:false, mode:"navigate", useAHN:true,
+  surfaceLayer:AHN_LAYER, display:"embed",
   baseZ:null, lines:[[]], pending:null, epoch:0, terrainEpoch:0,
-  canRender:false
+  lastGoogleViewUrl:null, canRender:false
 };
 
 function notice(text, error=false) {
@@ -71,11 +79,20 @@ function summary() {
   }
   rows.push(["Punten",count],["Segmenten",segments],
     ["Horizontale afstand",format(plan)+" m"]);
-  if(state.useAHN)rows.push(
-    ["Rechte 3D-lengte",format(three)+" m"],
-    ["Laatste hoogte NAP",last ? format(last.z,2)+" m":"—"],
-    ["Hoogteverschil",last&&first ? format(last.z-first.z,2)+" m":"—"]
-  );
+  if(state.useAHN) {
+    rows.push(
+      ["AHN-model",state.surfaceLayer===AHN_SURFACE_LAYER?"DSM (dak/object)":"DTM (maaiveld)"],
+      ["Rechte 3D-lengte",format(three)+" m"],
+      [state.surfaceLayer===AHN_SURFACE_LAYER?"Laatste DSM-hoogte NAP":"Laatste maaiveld NAP",
+        last ? format(last.z,2)+" m":"—"],
+      ["Hoogteverschil",last&&first ? format(last.z-first.z,2)+" m":"—"]
+    );
+    if(state.surfaceLayer===AHN_SURFACE_LAYER) rows.push(
+      ["Laatste DSM–DTM (objectindicatie)",
+        last && Number.isFinite(last.objectHeight)
+          ? format(last.objectHeight,2)+" m":"—"]
+    );
+  }
   ui.results.replaceChildren();
   for(const [key,value] of rows) {
     const node=document.createElement("div");
@@ -132,8 +149,14 @@ function render() {
       if(!p||p.x<0||p.x>rect.width||p.y<0||p.y>rect.height)return;
       ctx.beginPath();ctx.arc(p.x,p.y,6,0,Math.PI*2);
       ctx.fillStyle=color;ctx.fill();ctx.strokeStyle="#0b202a";ctx.lineWidth=2;ctx.stroke();
-      if(state.useAHN)
-        drawTag(format(vertices[i].point.z,2)+" m NAP",p.x,p.y+38,color,rect);
+      if(state.useAHN) {
+        const vertex=vertices[i].point;
+        const objectLabel=state.surfaceLayer===AHN_SURFACE_LAYER &&
+          Number.isFinite(vertex.objectHeight)
+          ? " • +"+format(vertex.objectHeight,1)+" m"
+          : "";
+        drawTag(format(vertex.z,2)+" m NAP"+objectLabel,p.x,p.y+38,color,rect);
+      }
     });
   }
 }
@@ -151,7 +174,8 @@ async function updateTerrain() {
   ui["ahn-status"].textContent="Maaiveldhoogte ophalen bij PDOK…";
   try {
     const {lat,lng}=cameraLocation();
-    const z=await AHN.height(lat,lng);
+    // Camera height is ALWAYS relative to true ground (DTM), never a roof (DSM).
+    const z=await AHN.height(lat,lng,undefined,AHN_LAYER);
     if(epoch!==state.terrainEpoch)return;
     if(z===null) {
       ui["ahn-status"].textContent="Geen AHN-maaiveld beschikbaar op deze positie.";
@@ -175,9 +199,14 @@ function switchMode(target) {
     if(!ui["calibration-confirmed"].checked)
       return notice("Bevestig eerst de handmatige camerakalibratie.",true);
     if(state.useAHN&&state.baseZ===null)return notice("Wacht tot AHN is geladen of zet AHN uit.",true);
-    if(state.mode!=="measure")resetMeasurements("Meetbeeld vergrendeld. Klik op de grond om punten te plaatsen. Niet meer in Google draaien.");
+    if(state.mode!=="measure")resetMeasurements(
+      state.surfaceLayer===AHN_SURFACE_LAYER && state.useAHN
+        ? "Meetbeeld vergrendeld: klik op een zichtbaar dak of bovenvlak. DSM bevat ook bomen."
+        : "Meetbeeld vergrendeld. Klik op de grond om punten te plaatsen."
+    );
   } else if(state.mode==="measure") {
-    resetMeasurements("Navigatiemodus: oude lijnen gewist omdat de Google-camera niet uit te lezen is. Plak daarna een nieuwe gedeelde insluitlink.");
+    ui["calibration-confirmed"].checked=false;
+    resetMeasurements("Navigatiemodus: metingen gewist. Kalibreer opnieuw na draaien, zoomen of verplaatsen.");
   }
   state.mode=target;
   const isMeasure=target==="measure";
@@ -203,7 +232,7 @@ async function addClick(event) {
     try {
       const result=await terrainRayIntersection({
         ray,origin:original,cameraBaseZ:state.baseZ,cameraHeight:n("height"),
-        sampleHeight:(lat,lng,signal)=>AHN.height(lat,lng,signal),
+        sampleHeight:(lat,lng,signal)=>AHN.height(lat,lng,signal,state.surfaceLayer),
         signal:controller.signal,maxDistance:MAX_GROUND_DISTANCE_M
       });
       if(controller.signal.aborted||stamp!==state.epoch)return;
@@ -214,6 +243,17 @@ async function addClick(event) {
         notice(why,true);return;
       }
       point=result.point;
+      if(state.surfaceLayer===AHN_SURFACE_LAYER) {
+        // Sample the underlying terrain at the same XY to estimate object height.
+        // DSM includes vegetation and overhead objects; never claim it is definitely a building.
+        const location=offsetLocation(original,point.e,point.n);
+        if(location) {
+          const ground=await AHN.height(location.lat,location.lng,controller.signal,AHN_LAYER);
+          if(stamp!==state.epoch || controller.signal.aborted)return;
+          point.groundZ=ground;
+          point.objectHeight=Number.isFinite(ground)?Math.max(0,point.z-ground):null;
+        }
+      }
     } catch(error) {
       if(!controller.signal.aborted&&stamp===state.epoch)
         notice("AHN-metingen mislukt: "+error.message,true);
@@ -264,13 +304,76 @@ function exportCsv() {
   notice("Indicatieve meetpunten geëxporteerd; geen Google-beelden opgeslagen.");
 }
 
+/**
+ * Google Maps is loaded as an isolated, regular browser guest, NOT as a Google
+ * Street View API. No tile interception, internal Google endpoints or scraping.
+ * An ordinary Google website may still reject embedded browsers on some machines.
+ */
+function showBrowser() {
+  if(state.mode==="measure")switchMode("navigate");
+  resetMeasurements("Google Maps geopend. Kies een Street View-foto in het kaartbeeld.");
+  state.display="maps";
+  state.loaded=true;
+  ui.viewer.classList.add("loaded","maps-browser");
+  const guest=ui["google-browser"];
+  if(!guest.getAttribute("src"))guest.setAttribute("src","https://www.google.com/maps");
+  ui["calibration-confirmed"].checked=false;
+  updateTerrain();
+}
+
+function showIframe() {
+  if(state.mode==="measure")switchMode("navigate");
+  resetMeasurements("Insluitmodus: plak de Google Maps-sharecode of laad eerder gebruikte iframe.");
+  state.display="embed";
+  ui.viewer.classList.remove("maps-browser");
+  state.loaded=Boolean(ui["google-frame"].getAttribute("src"));
+  ui["calibration-confirmed"].checked=false;
+  updateTerrain();
+}
+
+function googleUrlChanged(url) {
+  if(state.display!=="maps" || !url || url===state.lastGoogleViewUrl)return;
+  state.lastGoogleViewUrl=url;
+  // Every navigation invalidates our manually entered camera model, even
+  // if the Google URL contains no parseable camera metadata.
+  if(state.mode==="measure")switchMode("navigate");
+  resetMeasurements();
+  ui["calibration-confirmed"].checked=false;
+  const hint=parseGoogleMapsViewUrl(url);
+  if(!hint) {
+    notice("Navigeer in Google Maps naar Street View. Vul daarna de cameragegevens in.",false);
+    return;
+  }
+  ui.lat.value=String(hint.lat);
+  ui.lng.value=String(hint.lng);
+  if(hint.heading!==null)ui.heading.value=String(hint.heading);
+  notice("Street View-herkenning: coördinaten/richting als voorstel ingevuld. Controleer de camerahoek en beeldhoek.",false);
+  updateTerrain();
+}
+
+ui["maps-browser"].addEventListener("click",showBrowser);
+ui["use-iframe"].addEventListener("click",showIframe);
+const guest=ui["google-browser"];
+guest.addEventListener("did-navigate",event=>googleUrlChanged(event.url));
+guest.addEventListener("did-navigate-in-page",event=>googleUrlChanged(event.url));
+guest.addEventListener("did-fail-load",event=>{
+  if(state.display==="maps" && event.isMainFrame)
+    notice("Google Maps kon niet in de ingebouwde browser laden. Gebruik eventueel de insluitlink.",true);
+});
+guest.addEventListener("dom-ready",()=>{
+  if(state.display==="maps") notice("Google Maps geladen: open Street View met de blauwe lijnen of Street View-foto.",false);
+});
+
 ui["open-maps"].addEventListener("click",()=>window.open("https://www.google.com/maps","_blank","noopener"));
 ui.load.addEventListener("click",()=>{
   let parsed;
   try{parsed=parseEmbedHtml(ui.embed.value);}
   catch(e){return notice(e.message,true);}
+  if(state.mode==="measure")switchMode("navigate");
   resetMeasurements();
   state.loaded=true;
+  state.display="embed";
+  ui.viewer.classList.remove("maps-browser");
   ui["google-frame"].src=parsed.url;
   ui.viewer.classList.add("loaded");
   ui.lat.value=parsed.location ? String(parsed.location.lat) : "";
@@ -297,6 +400,14 @@ ui.ahn.addEventListener("change",()=>{
   resetMeasurements("Meetmodel veranderd: plaats punten opnieuw.");
   updateTerrain();
 });
+ui["ahn-layer"].addEventListener("change",()=>{
+  state.surfaceLayer=ui["ahn-layer"].value===AHN_SURFACE_LAYER?AHN_SURFACE_LAYER:AHN_LAYER;
+  if(state.mode==="measure")switchMode("navigate");
+  resetMeasurements(state.surfaceLayer===AHN_SURFACE_LAYER
+    ? "DSM actief: meting op bovenoppervlakken, inclusief daken en bomen."
+    : "DTM actief: meting op maaiveld zonder gebouwen.");
+  render();
+});
 for(const id of ["lat","lng","height","heading","pitch","fov"]) {
   ui[id].addEventListener("change",()=>{
     ui["calibration-confirmed"].checked=false;
@@ -313,3 +424,5 @@ ui["refresh-ahn"].addEventListener("click",()=>{
 });
 new ResizeObserver(render).observe(ui.viewer);
 summary();
+// Start directly in Google Maps. Copying an iframe is an optional fallback.
+showBrowser();
