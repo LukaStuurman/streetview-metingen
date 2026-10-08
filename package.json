@@ -7,7 +7,7 @@
   "scripts": {
     "test": "node --test",
     "desktop": "electron .",
-    "dist:win": "electron-builder --win portable nsis"
+    "dist:win": "electron-builder --win portable nsis --publish never"
   },
   "engines": {
     "node": ">=20"
