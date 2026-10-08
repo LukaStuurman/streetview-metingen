@@ -9,7 +9,7 @@ import {
 
 const $ = id => document.getElementById(id);
 const ui = Object.fromEntries([
-  "embed","open-maps","load","maps-browser","use-iframe","google-browser",
+  "embed","open-maps","load","maps-browser","reload-maps","use-iframe","google-browser",
   "lat","lng","heading","pitch","fov","height",
   "ahn","ahn-layer","ahn-status","refresh-ahn","calibration-confirmed",
   "navigate","measure","new-line","undo",
@@ -343,6 +343,13 @@ function showIframe() {
 
 function googleUrlChanged(url) {
   if(state.display!=="maps" || !url || url===state.lastGoogleViewUrl)return;
+  try {
+    const u = new URL(url);
+    if(["consent.google.com","consent.google.nl"].includes(u.hostname)) {
+      notice("Google-cookiekeuze: kies zelf Alles accepteren of Alles weigeren. Je keuze wordt bewaard.",false);
+      return;
+    }
+  } catch { /* invalid guest URL; handled below */ }
   state.lastGoogleViewUrl=url;
   // Every navigation invalidates our manually entered camera model, even
   // if the Google URL contains no parseable camera metadata.
@@ -362,6 +369,14 @@ function googleUrlChanged(url) {
 }
 
 ui["maps-browser"].addEventListener("click",showBrowser);
+ui["reload-maps"].addEventListener("click",()=>{
+  if(state.display!=="maps")showBrowser();
+  const guest=ui["google-browser"];
+  if(typeof guest.reload==="function" && guest.getAttribute("src")) {
+    guest.reload();
+    notice("Google Maps opnieuw laden. Je cookiekeuze blijft in de app bewaard.");
+  } else guest.setAttribute("src","https://www.google.com/maps");
+});
 ui["use-iframe"].addEventListener("click",showIframe);
 const guest=ui["google-browser"];
 guest.addEventListener("did-navigate",event=>googleUrlChanged(event.url));

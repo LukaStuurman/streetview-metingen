@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src https://www.google.com https://www.google.nl; connect-src https://service.pdok.nl; object-src 'none'; base-uri 'none'; form-action 'none'">
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src https://www.google.com https://www.google.nl https://consent.google.com https://consent.google.nl; connect-src https://service.pdok.nl; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Streetview Metingen — originele Google-beelden</title>
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./app.mjs"></script>
@@ -20,6 +20,8 @@
     <section>
       <h2><span>01</span> Google Street View openen</h2>
       <button id="maps-browser" class="primary full" type="button">Open Google Maps in dit programma</button>
+      <button id="reload-maps" class="secondary full" type="button">Google Maps opnieuw laden</button>
+      <p class="muted">Zie je een Google-cookiepagina? Kies daar zelf <strong>Alles accepteren</strong> of <strong>Alles weigeren</strong>. Je keuze wordt bewaard in de app. Mocht het scherm blijven staan, gebruik dan de knop <strong>Google Maps opnieuw laden</strong>.</p>
       <p class="muted">Zoek in de ingebouwde Google Maps-weergave een adres en klik op een blauwe Street View-lijn of foto. <strong>Geen deelcode nodig.</strong> De normale website werkt onafhankelijk van een Cloud API-sleutel. De camerakalibratie blijft handmatig.</p>
       <button id="use-iframe" class="secondary full" type="button">Alternatief: Google-insluitlink gebruiken</button>
       <p class="muted">Alleen als de ingebouwde Google Maps-website niet werkt: open Google Maps in je browser, kies in Street View <strong>Delen → Een kaart insluiten → HTML kopiëren</strong> en plak de HTML hieronder.</p>
