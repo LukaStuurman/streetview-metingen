@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {triangulatePanoramas} from "../src/triangulation.mjs";
 import {offsetLocation} from "../src/ahn.mjs";
+import {readFileSync} from "node:fs";
 
 const origin={lat:52.1551744,lng:5.38720621};
 const observe=(cameraE,cameraN,targetE,targetN,extra={})=>{
@@ -77,4 +78,20 @@ test("invalid positions and degenerate rays do not yield invented coordinates",(
   const a=observe(0,0,15,55),b=observe(10,0,15,55);
   assert.equal(triangulatePanoramas([a,{...b,lat:NaN}]).status,"invalid");
   assert.equal(triangulatePanoramas([a,{...b,ray:{e:0,n:0,u:1}}]).status,"invalid");
+});
+
+test("Electron Windows includes triangulation UI, capture workflow and solver",()=>{
+  const app=readFileSync(new URL("../desktop-google/app.mjs",import.meta.url),"utf8");
+  const html=readFileSync(new URL("../desktop-google/index.html",import.meta.url),"utf8");
+  const pack=JSON.parse(readFileSync(new URL("../package.json",import.meta.url),"utf8"));
+  for(const name of ["tri-start","tri-stop","tri-undo","tri-export","tri-results","tri-status"]){
+    assert.ok(html.includes('id="'+name+'"'),name);
+    assert.ok(app.includes(name),name);
+  }
+  assert.ok(app.includes("captureTriangulation(ray)"));
+  assert.ok(app.includes("triangulatePanoramas("));
+  assert.ok(app.includes("state.triangulation.observations"));
+  assert.ok(html.includes('id="height"'));
+  assert.ok(html.includes('value="2.5"'));
+  assert.ok(pack.build.files.includes("src/triangulation.mjs"));
 });
