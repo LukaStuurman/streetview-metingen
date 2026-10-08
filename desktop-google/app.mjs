@@ -95,6 +95,8 @@ function renderTriangulation() {
       ["RD Y",result.point.rd?format(result.point.rd.y,2)+" m":"Buiten RD-gebied"],
       ["Latitude",result.point.lat.toFixed(7)],
       ["Longitude",result.point.lng.toFixed(7)],
+      ["X lokaal t.o.v. camera 1",format(result.point.e,1)+" m"],
+      ["Y lokaal t.o.v. camera 1",format(result.point.n,1)+" m"],
       ["Max. camerabasis",format(result.baselineM,1)+" m"],
       ["Snijhoek",format(result.angleDeg,1)+"°"],
       ["Lijnrestfout RMS",format(result.residualRmsM,2)+" m"],
@@ -179,7 +181,8 @@ function exportTriangulation(){
   if(result?.status!=="ok")
     return notice("Voor export zijn minimaal twee niet-parallelle kijkstralen nodig.",true);
   const names=["type","index","camera_lat","camera_lng","doel_lat","doel_lng",
-    "RD_X","RD_Y","Z_kijklijnen_NAP","baseline_m","snijhoek_deg","RMS_restfout_m",
+    "RD_X","RD_Y","lokaal_X_m","lokaal_Y_m",
+    "Z_kijklijnen_NAP","baseline_m","snijhoek_deg","RMS_restfout_m",
     "gevoeligheid_1deg_m","betrouwbaarheid","bron"];
   const rows=[names.join(";")];
   const p=result.point;
@@ -188,6 +191,7 @@ function exportTriangulation(){
     rows.push(["triangulatie",i+1,o.lat.toFixed(8),o.lng.toFixed(8),
       p.lat.toFixed(8),p.lng.toFixed(8),
       p.rd?p.rd.x.toFixed(2):"",p.rd?p.rd.y.toFixed(2):"",
+      p.e.toFixed(2),p.n.toFixed(2),
       Number.isFinite(p.z)?p.z.toFixed(2):"",
       result.baselineM.toFixed(2),result.angleDeg.toFixed(2),
       result.residualRmsM.toFixed(2),result.sensitivityAtOneDegreeM.toFixed(2),
