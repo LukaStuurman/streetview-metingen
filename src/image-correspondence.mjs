@@ -121,7 +121,7 @@ export function epipolarCandidates({
   ];
   if(!positions.every(Number.isFinite)||!cameraA?.view||!cameraB?.view||
     !Number.isFinite(sourcePoint?.x)||!Number.isFinite(sourcePoint?.y)||
-    !(minRange>0)&&!Number.isFinite(minRange)||
+    !(minRange>0)||!Number.isFinite(minRange)||
     !(maxRange>minRange)||!Number.isInteger(samples)||samples<2||samples>1000)
     return [];
   const ray=rayFromPixel(sourcePoint.x,sourcePoint.y,cameraA.view);
