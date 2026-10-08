@@ -13,9 +13,9 @@
 <div class="app">
   <aside class="tools">
     <header>
-      <div class="eyebrow">WINDOWS DESKTOP · ORIGINEEL GOOGLE</div>
+      <div class="eyebrow">TECHBASE · STREET VIEW METINGEN</div>
       <h1>Streetview <span>Metingen</span></h1>
-      <p>Echte Google Street View via een door Google gedeelde insluitlink. Geen Google Cloud-account, API-sleutel of eigen beeldopslag.</p>
+      <p>Origineel Google Street View, AHN-hoogtes en indicatieve X/Y-metingen. Geen Google Cloud-account of API-sleutel nodig.</p>
     </header>
     <section>
       <h2><span>01</span> Google Street View openen</h2>
@@ -51,7 +51,7 @@
         <label>Horizontale beeldhoek (°)<input id="fov" type="number" step="any" min="10" max="120" value="90"></label>
         <label>Camerahoogte (m)<input id="height" type="number" step="any" min=".5" max="5" value="2.5"></label>
       </div>
-      <label class="checkbox"><input id="calibration-confirmed" type="checkbox"> Ik heb de cameracoördinaten, richting, hoek en beeldhoek gecontroleerd</label>
+      <p class="camera-warning">Meetmodus start direct zodra de cameragegevens geldig zijn en AHN (indien ingeschakeld) beschikbaar is. De stand uit Google Maps kan achterlopen; controleer de uitlijning voordat je een meetpunt zet.</p>
       <label class="checkbox"><input id="ahn" type="checkbox" checked> AHN gebruiken voor 3D-terreinberekening</label>
       <label for="ahn-layer">AHN-model</label>
       <select id="ahn-layer" aria-label="AHN-model voor gekozen meetpunten">
@@ -68,7 +68,7 @@
         <button id="navigate" type="button" class="selected" aria-pressed="true">Navigeren</button>
         <button id="measure" type="button" aria-pressed="false">Meetpunten zetten</button>
       </div>
-      <p class="muted">Tijdens meten wordt de Google-weergave vergrendeld. Zodra je weer gaat navigeren worden de oude overlay-punten gewist, omdat de camera niet automatisch gevolgd kan worden. Klik voor DSM bij voorkeur op een zichtbaar dak, niet op een gevel.</p>
+      <p class="muted">Tijdens meten staat het beeld stil. Bij terugschakelen naar navigeren worden oude metingen gewist. In DSM: klik op een zichtbaar dak of bovenvlak, niet op een gevel.</p>
       <div class="actions">
         <button id="new-line" type="button">Nieuwe lijn</button>
         <button id="undo" type="button">Laatste punt wissen</button>
@@ -81,9 +81,12 @@
     <section>
       <h2><span>04</span> Afstanden <small>indicatief</small></h2>
       <div id="results" class="results"></div>
+      <h2 class="point-heading"><span>05</span> Meetpunten en coördinaten <small>indicatief</small></h2>
+      <p class="muted">Lokaal X/Y = meters vanaf de camera (oost/noord). RD X/Y = benaderde Nederlandse Rijksdriehoekscoördinaten (EPSG:28992). Z = AHN in m NAP. Niet geschikt om kabels uit te zetten.</p>
+      <div id="point-results" class="point-results" aria-live="polite"></div>
     </section>
     <footer>
-      <p>Meetresultaten zijn afhankelijk van handmatige camerakalibratie, de AHN-terreinopname en de aannames over projectie. <strong>Niet geschikt voor maatvoering, constructie, kadastrale gegevens of kabeluitzetting.</strong></p>
+      <p>RD X/Y gebruikt een benaderingsformule, niet de officiële RDNAPTRANS-correctie. Camerageometrie, AHN en projectie kunnen grotere fouten veroorzaken. <strong>Niet voor maatvoering, constructies, kadastrale gegevens of kabeluitzetting.</strong></p>
       <p>Google-afbeeldingen en bronvermelding worden rechtstreeks door Google getoond. De app kopieert of bewaart geen Google-beelden.</p>
     </footer>
   </aside>
