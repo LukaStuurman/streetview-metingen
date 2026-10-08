@@ -2,6 +2,9 @@
 const { app, BrowserWindow, protocol, net, shell, session } = require("electron");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const {
+  isGoogleConsentUrl, isAllowedGoogleNavigation, isGoogleStorageOrigin
+} = require("./google-navigation.cjs");
 
 protocol.registerSchemesAsPrivileged([{
   scheme: "streetview",
@@ -26,8 +29,15 @@ async function launch() {
     return net.fetch(pathToFileURL(file).toString());
   });
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-  session.fromPartition("persist:google-maps").setPermissionRequestHandler(
-    (_contents, _permission, callback) => callback(false)
+  // Keep Google's own accept/reject selection and cookie jar across sessions.
+  // Do not grant camera, location, notifications, or any other web permission.
+  const mapsSession = session.fromPartition("persist:google-maps");
+  mapsSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+    const requester = details?.requestingUrl || contents.getURL();
+    callback(permission === "storage-access" && isGoogleStorageOrigin(requester));
+  });
+  mapsSession.setPermissionCheckHandler((_contents, permission, requestingOrigin) =>
+    permission === "storage-access" && isGoogleStorageOrigin(requestingOrigin)
   );
   const main = new BrowserWindow({
     width: 1530, height: 930, minWidth: 1120, minHeight: 690,
@@ -44,16 +54,36 @@ async function launch() {
   });
   app.on("web-contents-created", (_event, guestContents) => {
     if (guestContents.getType() !== "webview") return;
-    guestContents.setWindowOpenHandler(() => ({ action:"deny" }));
-    // Remote Google Maps guest is a real web page but may not navigate to
-    // unrelated hosts or access privileged Electron app internals.
-    guestContents.on("will-navigate", (event, address) => {
-      try {
-        const uri = new URL(address);
-        if (uri.protocol === "https:" && uri.hostname === "www.google.com" &&
-            uri.pathname.startsWith("/maps")) return;
-      } catch {}
-      event.preventDefault();
+    // Consent.google.com is a legitimate Google redirect. The old /maps
+    // only rule trapped users on the Accept all / Reject all dialog.
+    guestContents.on("will-navigate", (event, details) => {
+      const address = typeof details === "string" ? details : details?.url;
+      if (!isAllowedGoogleNavigation(address)) event.preventDefault();
+    });
+    guestContents.setWindowOpenHandler(({ url }) => {
+      // Some Google consent flows open a separate window. Keep it in the SAME
+      // persistent partition so the user's actual consent choice is remembered.
+      if (!isGoogleConsentUrl(url)) return { action: "deny" };
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          width: 800, height: 740, autoHideMenuBar: true,
+          title: "Google Maps — cookies accepteren of weigeren",
+          webPreferences: {
+            partition: "persist:google-maps",
+            nodeIntegration: false, contextIsolation: true,
+            sandbox: true, webSecurity: true
+          }
+        }
+      };
+    });
+    guestContents.on("did-create-window", child => {
+      child.setMenuBarVisibility(false);
+      child.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+      child.webContents.on("will-navigate", (event, details) => {
+        const address = typeof details === "string" ? details : details?.url;
+        if (!isAllowedGoogleNavigation(address)) event.preventDefault();
+      });
     });
   });
   main.webContents.on("will-attach-webview", (event, webPreferences, params) => {
@@ -64,9 +94,7 @@ async function launch() {
     webPreferences.webSecurity = true;
     // Remote guest must be the ordinary public Google Maps website.
     try {
-      const src = new URL(params.src);
-      if (src.protocol !== "https:" || src.hostname !== "www.google.com" ||
-          !src.pathname.startsWith("/maps")) event.preventDefault();
+      if (!isAllowedGoogleNavigation(params.src)) event.preventDefault();
     } catch { event.preventDefault(); }
   });
   main.webContents.setWindowOpenHandler(({ url }) => {
