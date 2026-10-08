@@ -5,7 +5,7 @@ import { parseEmbedHtml, viewFromFields } from "./measurement-helpers.mjs";
 const $ = id => document.getElementById(id);
 const ui = Object.fromEntries([
   "embed","open-maps","load","lat","lng","heading","pitch","fov","height",
-  "ahn","ahn-status","refresh-ahn","navigate","measure","new-line","undo",
+  "ahn","ahn-status","refresh-ahn","calibration-confirmed","navigate","measure","new-line","undo",
   "clear","export","results","viewer","google-frame","overlay","notice"
 ].map(id => [id, $(id)]));
 const ctx = ui.overlay.getContext("2d");
@@ -25,7 +25,8 @@ function n(id) { return Number(ui[id].value); }
 function validCalibration() {
   const lat=n("lat"),lng=n("lng"),h=n("height");
   const fov=n("fov"),pitch=n("pitch"),heading=n("heading");
-  return Number.isFinite(lat)&&lat>=-90&&lat<=90 &&
+  return ui.lat.value.trim()!==""&&ui.lng.value.trim()!=="" &&
+    Number.isFinite(lat)&&lat>=-90&&lat<=90 &&
     Number.isFinite(lng)&&lng>=-180&&lng<=180 &&
     Number.isFinite(h)&&h>=0.5&&h<=5 &&
     Number.isFinite(fov)&&fov>=15&&fov<=120 &&
@@ -170,6 +171,8 @@ function switchMode(target) {
   if(target==="measure") {
     if(!state.loaded)return notice("Open eerst een gedeelde Google Street View-link.",true);
     if(!validCalibration())return notice("Controleer alle cameravelden.",true);
+    if(!ui["calibration-confirmed"].checked)
+      return notice("Bevestig eerst de handmatige camerakalibratie.",true);
     if(state.useAHN&&state.baseZ===null)return notice("Wacht tot AHN is geladen of zet AHN uit.",true);
     if(state.mode!=="measure")resetMeasurements("Meetbeeld vergrendeld. Klik op de grond om punten te plaatsen. Niet meer in Google draaien.");
   } else if(state.mode==="measure") {
@@ -269,10 +272,9 @@ ui.load.addEventListener("click",()=>{
   state.loaded=true;
   ui["google-frame"].src=parsed.url;
   ui.viewer.classList.add("loaded");
-  if(parsed.location) {
-    ui.lat.value=String(parsed.location.lat);
-    ui.lng.value=String(parsed.location.lng);
-  }
+  ui.lat.value=parsed.location ? String(parsed.location.lat) : "";
+  ui.lng.value=parsed.location ? String(parsed.location.lng) : "";
+  ui["calibration-confirmed"].checked=false;
   if(Number.isFinite(parsed.heading)) ui.heading.value=String(parsed.heading);
   // Pitch is deliberately NOT inferred from undocumented Google embed URL internals.
   switchMode("navigate");
@@ -296,6 +298,7 @@ ui.ahn.addEventListener("change",()=>{
 });
 for(const id of ["lat","lng","height","heading","pitch","fov"]) {
   ui[id].addEventListener("change",()=>{
+    ui["calibration-confirmed"].checked=false;
     if(state.mode==="measure")switchMode("navigate");
     resetMeasurements("Camerakalibratie gewijzigd: oude meetpunten gewist.");
     if(["lat","lng"].includes(id))updateTerrain();
