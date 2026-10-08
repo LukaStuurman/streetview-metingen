@@ -11,3 +11,6 @@ jobs:
         with:
           node-version: "22"
       - run: npm test
+      - name: Check live PDOK AHN (non-blocking)
+        run: node scripts/smoke-ahn.mjs
+        continue-on-error: true
