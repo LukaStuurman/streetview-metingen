@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseEmbedHtml,parseGoogleMapsViewUrl,inspectGoogleMapsViewUrl,cameraPoseChanged,viewFromFields } from "../desktop-google/measurement-helpers.mjs";
-import { rayFromPixel } from "../src/geometry.mjs";
+import { groundFromRay, pixelFromWorld, rayFromPixel } from "../src/geometry.mjs";
+import { terrainRayIntersection } from "../src/ahn.mjs";
 
 const sample='https://www.google.com/maps/embed?pb=!4v10!6m8!1m7!1sgooglePanoId!2m2!1d51.4416!2d5.4697!3f110.5!4f0!5f0.78';
 test("parses only a direct Google-generated embed link",()=>{
@@ -29,8 +30,8 @@ test("calibrated FOV is correctly mapped to camera projection",()=>{
 
 test("Google Maps Street View URL hints include heading, pitch and horizontal FOV",()=>{
   const p = parseGoogleMapsViewUrl("https://www.google.com/maps/@51.4416,5.4697,3a,75y,123.5h,100t/data=!3m1!1e3");
-  assert.deepEqual(p, { lat:51.4416, lng:5.4697, heading:123.5, pitch:-10, fov:75 });
-  const up=parseGoogleMapsViewUrl("https://www.google.nl/maps/@51.4416,5.4697,3a,40y,270h,70t/data=example");
+  assert.deepEqual(p, { lat:51.4416, lng:5.4697, heading:123.5, pitch:10, fov:75 });
+  const up=parseGoogleMapsViewUrl("https://www.google.nl/maps/@51.4416,5.4697,3a,40y,270h,110t/data=example");
   assert.equal(up.pitch,20);
   assert.equal(up.heading,270);
   assert.equal(up.fov,40);
@@ -53,6 +54,52 @@ test("Google Maps URL camera changes are detected without needless resets",()=>{
   for (const pose of [rotated,tilted,zoomed,moved]) assert.equal(cameraPoseChanged(base,pose),true);
   assert.equal(cameraPoseChanged(null,base),true);
 });
+
+test("Maps path tilt and documented pitch use the same positive-up convention",()=>{
+  for(const pitch of [-90,-20,0,20,90]){
+    for(const marker of ["1a","2a","3a"]){
+      const path=parseGoogleMapsViewUrl(
+        `https://www.google.com/maps/@51.44,5.47,${marker},75y,120h,${pitch+90}t`);
+      const action=parseGoogleMapsViewUrl(
+        `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=51.44,5.47&heading=120&pitch=${pitch}&fov=75`);
+      assert.deepEqual(path,action);
+    }
+  }
+});
+
+test("downward Maps URL keeps distant ground clickable with flat ground and AHN",async()=>{
+  // Generate image pixels from an independently specified downward camera,
+  // then reconstruct them through the URL -> fields -> ray -> terrain pipeline.
+  const width=1124,height=892,cameraHeight=2.5,baseZ=14;
+  const expectedView=viewFromFields({width,height,heading:147.78,pitch:-12.38,fov:55.4});
+  const pose=parseGoogleMapsViewUrl(
+    "https://www.google.com/maps/@51.5333444,5.6342537,3a,55.4y,147.78h,77.62t/data=example");
+  const parsedView=viewFromFields({width,height,...pose});
+  const heading=expectedView.heading*Math.PI/180;
+  for(const distance of [10,25,75,200,450]){
+    const target={e:Math.sin(heading)*distance,n:Math.cos(heading)*distance,z:baseZ};
+    const pixel=pixelFromWorld(target,baseZ+cameraHeight,expectedView);
+    assert.ok(pixel.x>=0&&pixel.x<=width&&pixel.y>=0&&pixel.y<=height);
+    const ray=rayFromPixel(pixel.x,pixel.y,parsedView);
+    const flat=groundFromRay(ray,cameraHeight);
+    assert.ok(flat,`visible ground at ${distance}m must not be rejected as sky`);
+    assert.ok(Math.abs(Math.hypot(flat.e,flat.n)-distance)<1e-7);
+    const ahn=await terrainRayIntersection({
+      ray,origin:pose,cameraBaseZ:baseZ,cameraHeight,sampleHeight:async()=>baseZ
+    });
+    assert.equal(ahn.status,"ok");
+    assert.ok(Math.abs(ahn.distance-distance)<1e-7);
+    const projected=pixelFromWorld(ahn.point,baseZ+cameraHeight,parsedView);
+    assert.ok(Math.hypot(projected.x-pixel.x,projected.y-pixel.y)<1e-7);
+  }
+});
+
+test("upward Maps URL still rejects a sky click as flat ground",()=>{
+  const pose=parseGoogleMapsViewUrl(
+    "https://www.google.com/maps/@51.44,5.47,3a,75y,120h,110t");
+  const camera=viewFromFields({width:800,height:600,...pose});
+  assert.equal(groundFromRay(rayFromPixel(400,300,camera),2.5),null);
+});
 test("invalid or unavailable URL values never fabricate camera calibration",()=>{
   const incomplete = parseGoogleMapsViewUrl("https://www.google.com/maps/@51.44,5.47,3a,0y,400h,200t");
   assert.deepEqual(incomplete,{lat:51.44,lng:5.47,heading:null,pitch:null,fov:null});
@@ -63,7 +110,7 @@ test("invalid or unavailable URL values never fabricate camera calibration",()=>
 test("Google panorama with 2a or 1a marker is still recognized",()=>{
   const src="https://www.google.com/maps/@52.0907,5.1214,2a,60y,165h,85t/data=!4m1";
   assert.deepEqual(parseGoogleMapsViewUrl(src),{
-    lat:52.0907,lng:5.1214,heading:165,pitch:5,fov:60
+    lat:52.0907,lng:5.1214,heading:165,pitch:-5,fov:60
   });
   assert.equal(parseGoogleMapsViewUrl(src.replace(",2a,",",1a,")).fov,60);
 });
