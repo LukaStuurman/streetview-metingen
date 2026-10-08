@@ -1,13 +1,13 @@
 # Streetview Metingen — Windows, Google Maps + AHN DTM/DSM
 
-**Versie 0.4.0 (ontwikkelversie).** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
+**Versie 0.5.0.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
 
 ## Eenvoudig beginnen (zonder iframe-code)
 
 1. Start de Windows-app en klik op **Open Google Maps in dit programma** (de kaart wordt standaard al geopend).
 2. Zoek je locatie in Google Maps en open een **Street View-foto** via de bekende blauwe lijnen of thumbnails.
 3. Wanneer Google Maps een herkenbare Street View-URL toont, vult de app **breedtegraad, lengtegraad en eventueel kijkrichting** als *voorstel* in. Zo niet, vul ze handmatig in.
-4. Controleer de zichtbare kijkrichting, kijkhoek, **horizontale beeldhoek** en camerahoogte. De app kan de daadwerkelijke Street View-camerastand niet zonder API uitlezen. Vink **Ik heb de cameragegevens gecontroleerd** aan.
+4. Controleer de zichtbare kijkrichting, kijkhoek, **horizontale beeldhoek** en camerahoogte. De app kan de daadwerkelijke Street View-camerastand niet zonder API uitlezen. **Er is geen verplichte bevestigingscheckbox meer**: met geldige cameraparameters en eventueel geladen AHN kun je direct op **Meetpunten zetten** klikken. Controleer zelf of de camerastand nog bij het beeld past.
 5. Kies onder **AHN-model** een van de volgende opties:
    - **DTM – maaiveld:** geen gebouwen en bomen; geschikt voor een ruwe grondmeting.
    - **DSM – daken, bomen en objecten:** inschatting op bovenoppervlakken. Als DTM op dezelfde plek beschikbaar is, zie je ook **DSM–DTM** als indicatie voor de hoogte *boven het lokale maaiveld*.
@@ -15,6 +15,22 @@
 7. Bij **Navigeren** worden bestaande meetpunten gewist; controleer na draaien, zoomen of verplaatsen de camerakalibratie opnieuw. Exporteer je meetpunten desgewenst naar CSV.
 
 **Als de ingebouwde Google Maps-website door Google of het netwerk wordt geblokkeerd:** klik op **Alternatief: Google-insluitlink gebruiken**. Open in je reguliere browser Google Maps Street View, kies **Delen → Een kaart insluiten → HTML kopiëren**, plak die HTML en gebruik **Originele Street View tonen**. Deze optie blijft bestaan.
+
+## Techbase-kleuren en puntcoördinaten (v0.5.0)
+
+De Windows-app gebruikt een donker Techbase-geïnspireerd thema met **oranje als primaire kleur** en **rood voor accenten, meetlijnen en waarschuwingen**. Het kleurenpalet wordt met CSS-variabelen beheerd in `desktop-google/styles.css`.
+
+Na het plaatsen van een meetpunt verschijnt onder **Meetpunten en coördinaten** een kaartje met:
+
+- **X lokaal en Y lokaal (m):** oostelijke en noordelijke afstand vanaf de actuele Street View-camera; de camera ligt op (0, 0).
+- **RD X en RD Y (m):** benaderde Rijksdriehoekscoördinaten in **EPSG:28992 (RD New)**, berekend vanuit de geschatte WGS84-positie van het meetpunt.
+- **Z in NAP (m):** alleen als AHN actief is; anders toont de app geen verzonnen hoogte.
+
+De naam van het punt en afgeronde RD-coördinaten worden ook naast het punt in de meet-overlay getoond. Bij iedere CSV-export worden lat/lon, lokale X/Y, RD X/Y, gebruikte AHN-laag en eventuele Z-waarden opgenomen. Buiten het RD-gebied blijven RD-velden leeg.
+
+De RD-omrekening is een **polynomiale benadering** (zie `src/rd.mjs`) en gebruikt **niet** de officiële, op correctiegrids gebaseerde RDNAPTRANS-methode. Belangrijker nog: camerakalibratie, Street View-perspectief en AHN hebben eigen onzekerheden; ook numeriek plausibele RD-coördinaten zijn daarom **niet** geschikt voor uitzet- of GIS-registratie als werkelijk ingemeten posities.
+
+**De vorige knop `Ik heb de cameracoördinaten ... gecontroleerd` is verwijderd.** Geldige velden en eventueel een geladen AHN-waarde volstaan om de meetmodus te openen. Controleer wel de werkelijke camerastand; zonder juiste kalibratie kan geen betrouwbare coördinaat worden bepaald.
 
 ## Wat betekent AHN 'gebouwen' precies?
 
@@ -45,9 +61,9 @@ Gebruik **Diagnose Street View-camerastand** onder Google Maps openen. Daar zie 
 
 Bij de ingebouwde Google Maps-weergave controleert de desktopapp **vier keer per seconde** de zichtbare navigatie-URL van de normale Google Maps-site. De app reageert ook op Electron-navigatiegebeurtenissen.
 
-Als Google in die URL een Street View-camerastand publiceert, worden **breedtegraad, lengtegraad, kijkrichting (heading), hellingshoek (pitch) en horizontale beeldhoek (FOV/zoom)** opnieuw ingevuld. Bij een gewijzigde camerastand worden eventuele oude metingen verwijderd en moet de gebruiker de nieuwe kalibratie bevestigen voordat er weer wordt gemeten. Bij verplaatsing van het panorama wordt de AHN-maaiveldhoogte opnieuw opgevraagd; bij alleen draaien/zoomen gebeurt geen onnodige AHN-netwerkaanvraag.
+Als Google in die URL een Street View-camerastand publiceert, worden **breedtegraad, lengtegraad, kijkrichting (heading), hellingshoek (pitch) en horizontale beeldhoek (FOV/zoom)** opnieuw ingevuld. Bij een gewijzigde camerastand worden eventuele oude metingen verwijderd. Daarna kun je direct meten zodra geldige cameragegevens beschikbaar zijn. Bij verplaatsing van het panorama wordt de AHN-maaiveldhoogte opnieuw opgevraagd; bij alleen draaien/zoomen gebeurt geen onnodige AHN-netwerkaanvraag.
 
-**Beperking: dit is URL-synchronisatie, géén volledige realtime-camera-API.** Google kan tijdens slepen de URL niet veranderen of pas na afloop bijwerken; sommige panoramabewegingen blijven daarom onzichtbaar voor de app. Er is geen ondersteunde manier om zonder Google Maps Platform/Street View API de interne Google Maps-camerastand iedere frame uit te lezen. De getoonde URL-waarden blijven indicatief. Controleer de uitlijning en bevestig vóór het meten de kalibratie. Google Cloud-vrije Street View via de gewone browser blijft behouden.
+**Beperking: dit is URL-synchronisatie, géén volledige realtime-camera-API.** Google kan tijdens slepen de URL niet veranderen of pas na afloop bijwerken; sommige panoramabewegingen blijven daarom onzichtbaar voor de app. Er is geen ondersteunde manier om zonder Google Maps Platform/Street View API de interne Google Maps-camerastand iedere frame uit te lezen. De getoonde URL-waarden blijven indicatief. Controleer de uitlijning vóór het meten; daarvoor is geen aparte bevestigingsklik nodig. Google Cloud-vrije Street View via de gewone browser blijft behouden.
 
 De iframe-fallback deelt zelfs geen live navigatie-URL: daarin blijven de cameravelden handmatig.
 
@@ -79,6 +95,7 @@ Node.js 20 of nieuwer. De oudere `index.html`-webvariant gebruikt nog steeds de 
 - `desktop-google/measurement-helpers.mjs`: veilige Google Maps-links en optionele URL-camerahints.
 - `src/ahn.mjs`: openbare PDOK AHN WMS GetFeatureInfo met DTM `dtm_05m` / DSM `dsm_05m` en afzonderlijke caches.
 - `src/geometry.mjs`: perspectiefmodel en snijpunt tussen kijkstraal en hoogteoppervlak.
+- `src/rd.mjs`: indicatieve WGS84 → RD New (EPSG:28992), inclusief lokale X/Y per meetpunt.
 - `test/*.test.mjs`: camerageometrie, Google Maps-URLs, AHN DTM/DSM, no-data en browser fetch-context.
 - `scripts/smoke-ahn.mjs`: netwerkcontrole van DTM/DSM en browser-CORS.
 
