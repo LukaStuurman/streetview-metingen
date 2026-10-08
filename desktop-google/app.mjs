@@ -4,13 +4,13 @@ import {
 } from "../src/ahn.mjs";
 import { groundFromRay, pixelFromWorld, rayFromPixel, MAX_GROUND_DISTANCE_M } from "../src/geometry.mjs";
 import {
-  parseEmbedHtml, parseGoogleMapsViewUrl, viewFromFields
+  parseEmbedHtml, parseGoogleMapsViewUrl, cameraPoseChanged, viewFromFields
 } from "./measurement-helpers.mjs";
 
 const $ = id => document.getElementById(id);
 const ui = Object.fromEntries([
   "embed","open-maps","load","maps-browser","reload-maps","use-iframe","google-browser",
-  "lat","lng","heading","pitch","fov","height",
+  "lat","lng","heading","pitch","fov","height","camera-sync-status",
   "ahn","ahn-layer","ahn-status","refresh-ahn","calibration-confirmed",
   "navigate","measure","new-line","undo",
   "clear","export","results","viewer","google-frame","overlay","notice"
@@ -22,7 +22,7 @@ const state = {
   loaded:false, mode:"navigate", useAHN:true,
   surfaceLayer:AHN_LAYER, display:"embed",
   baseZ:null, lines:[[]], pending:null, epoch:0, terrainEpoch:0,
-  lastGoogleViewUrl:null, canRender:false
+  lastGoogleViewUrl:null, lastGooglePose:null, canRender:false
 };
 
 function notice(text, error=false) {
@@ -33,12 +33,12 @@ function n(id) { return Number(ui[id].value); }
 function validCalibration() {
   const lat=n("lat"),lng=n("lng"),h=n("height");
   const fov=n("fov"),pitch=n("pitch"),heading=n("heading");
-  return ui.lat.value.trim()!==""&&ui.lng.value.trim()!=="" &&
+  return ["lat","lng","heading","pitch","fov","height"].every(id=>ui[id].value.trim()!=="") &&
     Number.isFinite(lat)&&lat>=-90&&lat<=90 &&
     Number.isFinite(lng)&&lng>=-180&&lng<=180 &&
     Number.isFinite(h)&&h>=0.5&&h<=5 &&
-    Number.isFinite(fov)&&fov>=15&&fov<=120 &&
-    Number.isFinite(pitch)&&Math.abs(pitch)<=85 &&
+    Number.isFinite(fov)&&fov>=10&&fov<=120 &&
+    Number.isFinite(pitch)&&Math.abs(pitch)<=90 &&
     Number.isFinite(heading)&&heading>=0&&heading<=360;
 }
 function cameraLocation() {return {lat:n("lat"),lng:n("lng")};}
@@ -323,6 +323,12 @@ function showBrowser() {
   // Never reuse coordinates left over from a different previously opened iframe.
   ui.lat.value="";
   ui.lng.value="";
+  ui.heading.value="";
+  ui.pitch.value="";
+  ui.fov.value="";
+  state.lastGoogleViewUrl=null;
+  state.lastGooglePose=null;
+  ui["camera-sync-status"].textContent="URL-synchronisatie actief. Open Street View; Google bepaalt wanneer camerawijzigingen in de URL verschijnen.";
   ui["ahn-status"].textContent="Navigeer eerst naar Street View in Google Maps.";
   ui.viewer.classList.add("loaded","maps-browser");
   const guest=ui["google-browser"];
@@ -335,6 +341,9 @@ function showIframe() {
   if(state.mode==="measure")switchMode("navigate");
   resetMeasurements("Insluitmodus: plak de Google Maps-sharecode of laad eerder gebruikte iframe.");
   state.display="embed";
+  state.lastGoogleViewUrl=null;
+  state.lastGooglePose=null;
+  ui["camera-sync-status"].textContent="Insluitmodus: geen live camera-URL beschikbaar. Handmatige kalibratie vereist.";
   ui.viewer.classList.remove("maps-browser");
   state.loaded=Boolean(ui["google-frame"].getAttribute("src"));
   ui["calibration-confirmed"].checked=false;
@@ -346,26 +355,66 @@ function googleUrlChanged(url) {
   try {
     const u = new URL(url);
     if(["consent.google.com","consent.google.nl"].includes(u.hostname)) {
-      notice("Google-cookiekeuze: kies zelf Alles accepteren of Alles weigeren. Je keuze wordt bewaard.",false);
+      ui["camera-sync-status"].textContent="Google-cookiepagina: camerastand niet beschikbaar.";
+      notice("Kies zelf Alles accepteren of Alles weigeren. Je cookiekeuze wordt bewaard.",false);
       return;
     }
-  } catch { /* invalid guest URL; handled below */ }
+  } catch { /* An unrecognised URL cannot provide a camera pose. */ }
   state.lastGoogleViewUrl=url;
-  // Every navigation invalidates our manually entered camera model, even
-  // if the Google URL contains no parseable camera metadata.
+
+  const hint=parseGoogleMapsViewUrl(url);
+  if(!hint) {
+    // Leaving Street View invalidates any camera values previously read from it.
+    if(state.lastGooglePose) {
+      if(state.mode==="measure")switchMode("navigate");
+      resetMeasurements();
+      ui["calibration-confirmed"].checked=false;
+      ui.lat.value="";ui.lng.value="";
+      ui.heading.value="";ui.pitch.value="";ui.fov.value="";
+      state.lastGooglePose=null;
+      updateTerrain();
+    }
+    ui["camera-sync-status"].textContent="Geen Street View-camerastand in de huidige Google Maps-URL.";
+    return;
+  }
+
+  // Ignore unrelated Google URL changes (query strings, page metadata).
+  if(!cameraPoseChanged(state.lastGooglePose,hint))return;
+  const oldPose=state.lastGooglePose;
+  state.lastGooglePose=hint;
   if(state.mode==="measure")switchMode("navigate");
   resetMeasurements();
   ui["calibration-confirmed"].checked=false;
-  const hint=parseGoogleMapsViewUrl(url);
-  if(!hint) {
-    notice("Navigeer in Google Maps naar Street View. Vul daarna de cameragegevens in.",false);
-    return;
-  }
+
+  // Missing parameters must never retain calibration from a previous view.
   ui.lat.value=String(hint.lat);
   ui.lng.value=String(hint.lng);
-  if(hint.heading!==null)ui.heading.value=String(hint.heading);
-  notice("Street View-herkenning: coördinaten/richting als voorstel ingevuld. Controleer de camerahoek en beeldhoek.",false);
-  updateTerrain();
+  ui.heading.value=hint.heading===null?"":String(hint.heading);
+  ui.pitch.value=hint.pitch===null?"":String(hint.pitch);
+  ui.fov.value=hint.fov===null?"":String(hint.fov);
+
+  const complete=[hint.heading,hint.pitch,hint.fov].every(Number.isFinite);
+  ui["camera-sync-status"].textContent=complete
+    ? "Camera bijgewerkt vanuit Google Maps-URL: richting, helling en beeldhoek. Niet gegarandeerd tijdens slepen; controleer voor meten."
+    : "URL geeft slechts gedeeltelijke cameragegevens. Vul ontbrekende waarden handmatig in en controleer voor meten.";
+
+  const moved=!oldPose ||
+    Math.abs(oldPose.lat-hint.lat)>0.0000001 ||
+    Math.abs(oldPose.lng-hint.lng)>0.0000001;
+  if(moved)updateTerrain();
+  else render();
+}
+
+function pollGoogleCameraUrl() {
+  if(state.display!=="maps")return;
+  const guest=ui["google-browser"];
+  if(typeof guest.getURL!=="function")return;
+  try {
+    const currentUrl=guest.getURL();
+    if(currentUrl)googleUrlChanged(currentUrl);
+  } catch {
+    // The guest may not be ready immediately after app startup.
+  }
 }
 
 ui["maps-browser"].addEventListener("click",showBrowser);
@@ -380,13 +429,22 @@ ui["reload-maps"].addEventListener("click",()=>{
 ui["use-iframe"].addEventListener("click",showIframe);
 const guest=ui["google-browser"];
 guest.addEventListener("did-navigate",event=>googleUrlChanged(event.url));
-guest.addEventListener("did-navigate-in-page",event=>googleUrlChanged(event.url));
+guest.addEventListener("did-navigate-in-page",event=>{
+  if(event.isMainFrame)googleUrlChanged(event.url);
+});
+// Electron emits URL events on navigation, but Google Maps may update its
+// address-bar orientation between these events. Poll ONLY guest.getURL();
+// never inject scripts into Google's page or call undocumented Maps APIs.
+window.setInterval(pollGoogleCameraUrl,250);
 guest.addEventListener("did-fail-load",event=>{
   if(state.display==="maps" && event.isMainFrame)
     notice("Google Maps kon niet in de ingebouwde browser laden. Gebruik eventueel de insluitlink.",true);
 });
 guest.addEventListener("dom-ready",()=>{
-  if(state.display==="maps") notice("Google Maps geladen: open Street View met de blauwe lijnen of Street View-foto.",false);
+  if(state.display==="maps") {
+    notice("Google Maps geladen: open Street View met de blauwe lijnen of Street View-foto.",false);
+    pollGoogleCameraUrl();
+  }
 });
 
 ui["open-maps"].addEventListener("click",()=>window.open("https://www.google.com/maps","_blank","noopener"));
@@ -398,6 +456,9 @@ ui.load.addEventListener("click",()=>{
   resetMeasurements();
   state.loaded=true;
   state.display="embed";
+  state.lastGoogleViewUrl=null;
+  state.lastGooglePose=null;
+  ui["camera-sync-status"].textContent="Insluitmodus: Google geeft geen live camera-URL door. Handmatig kalibreren.";
   ui.viewer.classList.remove("maps-browser");
   ui["google-frame"].src=parsed.url;
   ui.viewer.classList.add("loaded");
