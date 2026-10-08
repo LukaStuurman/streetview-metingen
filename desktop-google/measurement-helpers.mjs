@@ -28,7 +28,7 @@ export function parseEmbedHtml(text) {
 /** Perspective estimate; calibration does not read the cross-origin Google iframe. */
 export function viewFromFields({width,height,heading,pitch,fov}) {
   if(![width,height,heading,pitch,fov].every(Number.isFinite)||
-    !(width>0&&height>0&&fov>=15&&fov<=120&&Math.abs(pitch)<=85))return null;
+    !(width>0&&height>0&&fov>=10&&fov<=120&&Math.abs(pitch)<=90))return null;
   return {width,height,heading,pitch,zoom:Math.log2(180/fov)};
 }
 
@@ -67,9 +67,9 @@ export function parseGoogleMapsViewUrl(urlText) {
     if (!m) continue;
     const value = Number(m[1]);
     if (!Number.isFinite(value)) continue;
-    if (m[2] === "y" && value >= 15 && value <= 120) fov = value;
+    if (m[2] === "y" && value >= 10 && value <= 120) fov = value;
     if (m[2] === "h" && value >= 0 && value <= 360) heading = value;
-    if (m[2] === "t" && value >= 5 && value <= 175)
+    if (m[2] === "t" && value >= 0 && value <= 180)
       pitch = 90 - value;  // positive up, negative down (our camera convention)
   }
   return {lat, lng, heading, pitch, fov};
