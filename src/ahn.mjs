@@ -51,7 +51,10 @@ export function parseAHNElevation(json) {
 }
 
 export class AHNClient {
-  constructor(fetchFn = fetch) {
+  constructor(fetchFn = (...args) => globalThis.fetch(...args)) {
+    // The browser's Window.fetch may reject method calls with a foreign
+    // receiver (e.g. this.fetchFn(...)) as an "Illegal invocation".
+    // Call through globalThis so Window remains the receiver.
     this.fetchFn = fetchFn;
     this.cache = new Map();
   }
