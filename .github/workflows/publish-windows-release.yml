@@ -1,0 +1,50 @@
+name: Publish Windows v0.3.0 release
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-windows-release.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download tested Windows build from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 37747516447 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name streetview-metingen-google-desktop-windows \
+            --dir release-assets
+      - name: Verify Windows release files
+        shell: bash
+        run: |
+          find release-assets -type f -maxdepth 2 -print
+          mapfile -d '' executables < <(find release-assets -type f -name '*.exe' -print0)
+          if [ "${#executables[@]}" -ne 2 ]; then
+            echo "Expected portable and installer EXE files; got ${#executables[@]}" >&2
+            exit 1
+          fi
+          for file in "${executables[@]}"; do sha256sum "$file"; done
+      - name: Publish GitHub release with EXE assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mapfile -d '' executables < <(find release-assets -type f -name '*.exe' -print0)
+          if gh release view v0.3.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v0.3.0 "${executables[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create v0.3.0 "${executables[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target 950867d4fc29aa8c4b0b54f7f500eb8ef1d532e3 \
+              --title "Streetview Metingen v0.3.0 — Windows" \
+              --notes-file RELEASE_NOTES_v0.3.0.md \
+              --latest
+          fi
