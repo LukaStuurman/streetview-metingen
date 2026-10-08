@@ -1,11 +1,49 @@
 {
   "name": "streetview-metingen",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Indicatieve afstanden tekenen en meten binnen Google Street View",
+  "main": "desktop/main.cjs",
+  "description": "Desktop Street-level meetpunten met Panoramax en AHN, zonder Google Cloud",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "desktop": "electron .",
+    "dist:win": "electron-builder --win portable nsis"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@panoramax/web-viewer": "5.2.0"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "nl.streetviewmetingen.desktop",
+    "productName": "Streetview Metingen",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop/**/*",
+      "src/ahn.mjs",
+      "src/geometry.mjs",
+      "src/sphere.mjs",
+      "package.json",
+      "node_modules/@panoramax/web-viewer/build/**/*",
+      "node_modules/@panoramax/web-viewer/package.json"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
 }
