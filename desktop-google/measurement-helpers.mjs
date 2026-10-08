@@ -33,24 +33,55 @@ export function viewFromFields({width,height,heading,pitch,fov}) {
 }
 
 /**
- * Best-effort hints from the user-visible Google Maps Street View URL.
- * Google does not promise this URL representation; never treat it as
- * a calibrated camera or click-ray/depth API.
+ * Parse ONLY the address-bar URL of the ordinary Google Maps webpage.
+ *
+ * Typical example:
+ * /maps/@51.4416,5.4697,3a,75y,123.5h,100t/data=...
+ * - y = approximate horizontal FOV
+ * - h = compass heading clockwise from north
+ * - t = tilt measured downward from vertical, with 90 = horizon
+ *
+ * These are UNDOCUMENTED website URL hints and are not the supported
+ * Street View camera API. URL may lag behind actual mouse movements.
  */
 export function parseGoogleMapsViewUrl(urlText) {
   let url;
   try { url = new URL(urlText); } catch { return null; }
   if (url.protocol !== "https:" ||
-      !["www.google.com", "www.google.nl", "google.com"].includes(url.hostname) ||
-      !url.pathname.startsWith("/maps")) return null;
-  // Example: /maps/@51.44,5.47,3a,75y,240h,90t/data=...
-  const match = url.pathname.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),3a(?:,\d+(?:\.\d+)?y)?(?:,(-?\d+(?:\.\d+)?)h)?/);
+      !["www.google.com", "www.google.nl", "google.com", "google.nl"].includes(url.hostname) ||
+      !/^\/maps(?:\/|$)/.test(url.pathname)) return null;
+
+  // The tokens must come directly after 3a (not in an embedded image URL).
+  const match = url.pathname.match(
+    /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),3a(?:,([^/]+))?/
+  );
   if (!match) return null;
-  const lat = Number(match[1]), lng = Number(match[2]), heading = Number(match[3]);
-  if (![lat,lng].every(Number.isFinite) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-  return {
-    lat, lng,
-    heading: match[3] && Number.isFinite(heading) && heading >= 0 && heading <= 360
-      ? heading : null
-  };
+  const lat = Number(match[1]), lng = Number(match[2]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) ||
+      Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+
+  const tokens = (match[3] || "").split(",");
+  let heading = null, pitch = null, fov = null;
+  for (const token of tokens) {
+    const m = token.match(/^(-?\d+(?:\.\d+)?)([yht])$/);
+    if (!m) continue;
+    const value = Number(m[1]);
+    if (!Number.isFinite(value)) continue;
+    if (m[2] === "y" && value >= 15 && value <= 120) fov = value;
+    if (m[2] === "h" && value >= 0 && value <= 360) heading = value;
+    if (m[2] === "t" && value >= 5 && value <= 175)
+      pitch = 90 - value;  // positive up, negative down (our camera convention)
+  }
+  return {lat, lng, heading, pitch, fov};
+}
+
+/** Track changes to actual encoded camera pose, not unrelated query strings. */
+export function cameraPoseChanged(previous, next, epsilon = 0.00001) {
+  if (!previous || !next) return true;
+  const fields = ["lat", "lng", "heading", "pitch", "fov"];
+  return fields.some(field => {
+    if (next[field] == null && previous[field] == null) return false;
+    if (next[field] == null || previous[field] == null) return true;
+    return Math.abs(next[field] - previous[field]) > epsilon;
+  });
 }
