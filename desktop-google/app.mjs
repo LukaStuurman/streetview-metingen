@@ -2,7 +2,10 @@ import {
   AHNClient, AHN_LAYER, AHN_SURFACE_LAYER, offsetLocation,
   terrainRayIntersection, horizontalDistance, spatialDistance
 } from "../src/ahn.mjs";
-import { groundFromRay, pixelFromWorld, rayFromPixel, MAX_GROUND_DISTANCE_M } from "../src/geometry.mjs";
+import {
+  groundFromRay, pixelFromWorld, rayFromPixel,
+  pointAtHorizontalDistance, rayDepressionDegrees, MAX_GROUND_DISTANCE_M
+} from "../src/geometry.mjs";
 import { pointCoordinates } from "../src/rd.mjs";
 import {
   parseEmbedHtml, inspectGoogleMapsViewUrl, cameraPoseChanged, viewFromFields
@@ -132,7 +135,10 @@ function summary() {
         ["RD X",coordinates.rd?format(coordinates.rd.x,1)+" m":"Buiten RD-gebied"],
         ["RD Y",coordinates.rd?format(coordinates.rd.y,1)+" m":"Buiten RD-gebied"],
         ["Z NAP",state.useAHN?format(vertex.z,2)+" m":"—"],
-        ["Stelsel","RD New · EPSG:28992"]
+        ["Stelsel","RD New · EPSG:28992"],
+        ["Afstand tot camera",format(Math.hypot(vertex.e,vertex.n),1)+" m"],
+        ["Bepaling",vertex.rangeManual?"Zelf opgegeven afstand":
+          state.useAHN?"Eerste AHN-snijpunt":"Vlakke grond"]
       ];
       for(const [label,value] of fields) {
         const cell=document.createElement("div");
@@ -147,6 +153,38 @@ function summary() {
       detail.textContent="Lat "+coordinates.lat.toFixed(6)+
         " / lon "+coordinates.lng.toFixed(6)+" · Indicatieve coördinaten";
       card.append(heading,grid,detail);
+      const correction=document.createElement("div");
+      correction.className="range-correction";
+      const note=document.createElement("p");
+      note.className="range-explanation";
+      note.textContent="Ligt het gekozen object verder weg? AHN geeft het eerste geraakte oppervlak, niet de zichtbare objectdiepte. Vul alleen een bekende horizontale afstand in (meter).";
+      const line=document.createElement("div");
+      line.className="range-actions";
+      const rangeInput=document.createElement("input");
+      rangeInput.type="number";
+      rangeInput.min="0.5";
+      rangeInput.max=String(MAX_GROUND_DISTANCE_M);
+      rangeInput.step="0.1";
+      rangeInput.value=Math.hypot(vertex.e,vertex.n).toFixed(1);
+      rangeInput.setAttribute("aria-label","Horizontale afstand camera tot punt "+(li+1)+"."+(pi+1)+" in meter");
+      const apply=document.createElement("button");
+      apply.type="button";
+      apply.className="range-apply";
+      apply.textContent="Afstand corrigeren";
+      apply.addEventListener("click",()=>correctPointRange(li,pi,rangeInput.value));
+      line.append(rangeInput,apply);
+      correction.append(note,line);
+      if(vertex.rangeManual) {
+        const status=document.createElement("p");
+        status.className="manual-range-warning";
+        const gap=vertex.ahnGap;
+        status.textContent=Number.isFinite(gap)
+          ? "Zelf opgegeven afstand; hoogteverschil t.o.v. AHN: "+
+            format(Math.abs(gap),2)+" m. Z volgt de kijkstraal."
+          : "Zelf opgegeven afstand; geen automatische dieptemeting. Z volgt de kijkstraal.";
+        correction.append(status);
+      }
+      card.append(correction);
       pointContainer.append(card);
     }
   }
@@ -294,7 +332,7 @@ async function addClick(event) {
       if(result.status!=="ok") {
         const why=result.status==="no-data"
           ? "AHN heeft hier geen terreinwaarde."
-          : "Geen AHN-terreinsnijpunt binnen 150 meter.";
+          : "Geen AHN-terreinsnijpunt binnen "+MAX_GROUND_DISTANCE_M+" meter.";
         notice(why,true);return;
       }
       point=result.point;
@@ -318,13 +356,70 @@ async function addClick(event) {
     }
   } else {
     const p=groundFromRay(ray,n("height"));
-    if(!p)return notice("Klik op maaiveld onder de horizon binnen 150 meter.",true);
+    if(!p)return notice("Klik op maaiveld onder de horizon binnen "+MAX_GROUND_DISTANCE_M+" meter.",true);
     point={...p,z:0};
   }
   if(stamp!==state.epoch)return;
   state.lines[state.lines.length-1].push({ray,point});
   render();
-  notice("Meetpunt geplaatst. Houd de camera stil voor volgende punten.");
+  const range=Math.hypot(point.e,point.n);
+  const depression=rayDepressionDegrees(ray);
+  const condition=depression!==null&&Math.abs(depression)<3
+    ? " Dicht bij de horizon: kleine hoekfouten veroorzaken grote afstandsfouten."
+    : "";
+  notice("Eerste "+(state.useAHN?"AHN-":"grond-")+"snijpunt op "+
+    format(range,1)+" m. Controleer dit bij verre objecten; pas eventueel de afstand aan."+
+    condition);
+}
+
+async function correctPointRange(lineIndex,pointIndex,rawInput) {
+  const range=Number(rawInput);
+  if(!rawInput.trim() || !Number.isFinite(range) ||
+     range<0.5 || range>MAX_GROUND_DISTANCE_M)
+    return notice("Geef een bekende afstand van 0,5 tot "+
+      MAX_GROUND_DISTANCE_M+" meter in.",true);
+  const vertex=state.lines[lineIndex]?.[pointIndex];
+  const elevation=cameraZ();
+  if(!vertex || !Number.isFinite(elevation) || state.pending)
+    return notice("Meetpunt/camerahoogte niet beschikbaar of nog bezig.",true);
+  const corrected=pointAtHorizontalDistance(vertex.ray,range,elevation);
+  if(!corrected)return notice("Dit punt kan niet langs de kijkstraal worden berekend.",true);
+  const epoch=state.epoch;
+  const controller=new AbortController();
+  state.pending=controller;
+  notice("Nieuwe positie op "+format(range,1)+" m bepalen; AHN controleren…");
+  let groundZ=null,surfaceZ=null;
+  try {
+    if(state.useAHN) {
+      const position=offsetLocation(cameraLocation(),corrected.e,corrected.n);
+      if(!position)throw new Error("Ongeldige doelcoördinaten");
+      surfaceZ=await AHN.height(position.lat,position.lng,controller.signal,state.surfaceLayer);
+      if(state.surfaceLayer===AHN_SURFACE_LAYER)
+        groundZ=await AHN.height(position.lat,position.lng,controller.signal,AHN_LAYER);
+      else groundZ=surfaceZ;
+    }
+    if(epoch!==state.epoch || controller.signal.aborted)return;
+    vertex.point={
+      ...corrected,
+      rangeManual:true,
+      ahnGap:Number.isFinite(surfaceZ)?corrected.z-surfaceZ:null,
+      groundZ,
+      objectHeight:Number.isFinite(surfaceZ)&&Number.isFinite(groundZ)
+        ? Math.max(0,surfaceZ-groundZ) : null
+    };
+    render();
+    const gap=vertex.point.ahnGap;
+    notice("Afstand handmatig ingesteld op "+format(range,1)+" m. "+
+      (Number.isFinite(gap) ?
+        "Hoogteverschil kijkstraal/AHN: "+format(Math.abs(gap),2)+" m. " : "")+
+      "RD X/Y zijn nu berekend op basis van jouw opgegeven afstand; "+
+      "het beeld levert geen automatische objectdiepte.",Number.isFinite(gap)&&Math.abs(gap)>1);
+  }catch(error){
+    if(epoch===state.epoch&&!controller.signal.aborted)
+      notice("Afstand niet aangepast: "+error.message,true);
+  }finally{
+    if(state.pending===controller)state.pending=null;
+  }
 }
 function newLine() {
   if(state.lines[state.lines.length-1]?.length)state.lines.push([]);
@@ -339,7 +434,8 @@ function undo() {
 function exportCsv() {
   const lines=[["lijn","punt","breedtegraad","lengtegraad","NAP_hoogte_m",
     "AHN_model","maaiveld_DTM_NAP_m","DSM_min_DTM_m",
-    "lokaal_X_meter","lokaal_Y_meter","RD_X_meter","RD_Y_meter","RD_EPSG"].join(";")];
+    "lokaal_X_meter","lokaal_Y_meter","RD_X_meter","RD_Y_meter","RD_EPSG",
+    "afstand_camera_m","diepte_methode","AHN_hoogteverschil_m"].join(";")];
   const origin=cameraLocation();
   for(let line=0;line<state.lines.length;line++){
     for(let i=0;i<state.lines[line].length;i++){
@@ -355,7 +451,11 @@ function exportCsv() {
         coords.localX.toFixed(2),coords.localY.toFixed(2),
         coords.rd?coords.rd.x.toFixed(2):"",
         coords.rd?coords.rd.y.toFixed(2):"",
-        coords.rd?"EPSG:28992":""].join(";"));
+        coords.rd?"EPSG:28992":"",
+        Math.hypot(p.e,p.n).toFixed(2),
+        p.rangeManual?"handmatige_afstand":
+          state.useAHN?"eerste_AHN_snijding":"vlak_maaiveld",
+        Number.isFinite(p.ahnGap)?p.ahnGap.toFixed(2):""].join(";"));
     }
   }
   if(lines.length===1)return notice("Plaats eerst meetpunten om te exporteren.",true);
