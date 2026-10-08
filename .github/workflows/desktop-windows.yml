@@ -1,0 +1,30 @@
+name: Windows desktop build (Google embed)
+on:
+  push:
+    branches:
+      - feat/google-street-view-keyless-desktop
+  workflow_dispatch:
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Electron and builder
+        run: npm install --no-audit --no-fund
+      - name: Unit tests
+        run: npm test
+      - name: Build Windows portable and installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: streetview-metingen-google-desktop-windows
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+          if-no-files-found: error
