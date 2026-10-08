@@ -29,7 +29,8 @@
       "src/geometry.mjs",
       "src/rd.mjs",
       "src/triangulation.mjs",
-      "package.json"
+      "package.json",
+      "src/image-correspondence.mjs"
     ],
     "win": {
       "target": [
