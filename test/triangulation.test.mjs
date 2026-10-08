@@ -57,10 +57,10 @@ test("reject same camera, nearly parallel lines, looking behind and farther than
   ].map((p,i)=>i===1?{...p,ray:{e:-1,n:-1,u:0}}:p));
   assert.ok(["behind","parallel","out-of-range"].includes(behind.status));
   assert.equal(triangulatePanoramas([
-    observe(0,0,10,700),observe(12,0,10,700)
+    observe(0,0,10,700),observe(25,0,10,700)
   ],{maxRange:800}).status,"ok");
   assert.equal(triangulatePanoramas([
-    observe(0,0,10,700),observe(12,0,10,700)
+    observe(0,0,10,700),observe(25,0,10,700)
   ]).status,"out-of-range");
 });
 
