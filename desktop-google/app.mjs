@@ -16,7 +16,7 @@ const $ = id => document.getElementById(id);
 const ui = Object.fromEntries([
   "embed","open-maps","load","maps-browser","reload-maps","check-camera-url",
   "maps-url","maps-url-reason","use-iframe","google-browser",
-  "lat","lng","heading","pitch","fov","height","camera-sync-status",
+  "lat","lng","heading","pitch","fov","fov-axis","height","camera-sync-status",
   "ahn","ahn-layer","ahn-status","refresh-ahn","point-results",
   "tri-start","tri-stop","tri-undo","tri-export","tri-results","tri-status",
   "navigate","measure","new-line","undo",
@@ -46,6 +46,7 @@ function validCalibration() {
     Number.isFinite(lng)&&lng>=-180&&lng<=180 &&
     Number.isFinite(h)&&h>=0.5&&h<=5 &&
     Number.isFinite(fov)&&fov>=10&&fov<=120 &&
+    ["horizontal","vertical"].includes(ui["fov-axis"].value) &&
     Number.isFinite(pitch)&&Math.abs(pitch)<=90 &&
     Number.isFinite(heading)&&heading>=0&&heading<=360;
 }
@@ -54,7 +55,7 @@ function view() {
   const rectangle=ui.overlay.getBoundingClientRect();
   return viewFromFields({
     width:rectangle.width,height:rectangle.height,
-    heading:n("heading"),pitch:n("pitch"),fov:n("fov")
+    heading:n("heading"),pitch:n("pitch"),fov:n("fov"),fovAxis:ui["fov-axis"].value
   });
 }
 function cameraZ() {
@@ -270,8 +271,8 @@ function summary() {
       const fields=[
         ["X lokaal",format(coordinates.localX,1)+" m"],
         ["Y lokaal",format(coordinates.localY,1)+" m"],
-        ["RD X",coordinates.rd?format(coordinates.rd.x,1)+" m":"Buiten RD-gebied"],
-        ["RD Y",coordinates.rd?format(coordinates.rd.y,1)+" m":"Buiten RD-gebied"],
+        ["RD X",coordinates.rd?format(coordinates.rd.x,2)+" m":"Buiten RD-gebied"],
+        ["RD Y",coordinates.rd?format(coordinates.rd.y,2)+" m":"Buiten RD-gebied"],
         [vertex.rangeManual?"Z kijkstraal (NAP)":"Z NAP",
           state.useAHN?format(vertex.z,2)+" m":"—"],
         ["Stelsel","RD New · EPSG:28992"],
@@ -291,8 +292,8 @@ function summary() {
       const detail=document.createElement("small");
       const depression=rayDepressionDegrees(state.lines[li][pi].ray);
       const nearHorizon=depression!==null&&Math.abs(depression)<3;
-      detail.textContent="Lat "+coordinates.lat.toFixed(6)+
-        " / lon "+coordinates.lng.toFixed(6)+
+      detail.textContent="Lat "+coordinates.lat.toFixed(8)+
+        " / lon "+coordinates.lng.toFixed(8)+
         (nearHorizon?" · Dicht bij horizon: zeer onzeker":"")+
         " · Indicatieve coördinaten";
       card.append(heading,grid,detail);
@@ -635,6 +636,7 @@ function showBrowser() {
   ui.heading.value="";
   ui.pitch.value="";
   ui.fov.value="";
+  ui["fov-axis"].value="horizontal";
   state.lastGoogleViewUrl=null;
   state.lastGooglePose=null;
   ui["maps-url"].value="";
@@ -651,6 +653,7 @@ function showIframe() {
   if(state.mode==="measure")switchMode("navigate");
   resetMeasurements("Insluitmodus: plak de Google Maps-sharecode of laad eerder gebruikte iframe.");
   state.display="embed";
+  ui["fov-axis"].value="horizontal";
   state.lastGoogleViewUrl=null;
   state.lastGooglePose=null;
   ui["camera-sync-status"].textContent="Insluitmodus: geen live camera-URL beschikbaar. Handmatige kalibratie vereist.";
@@ -704,6 +707,7 @@ function googleUrlChanged(url) {
   ui.heading.value=hint.heading===null?"":String(hint.heading);
   ui.pitch.value=hint.pitch===null?"":String(hint.pitch);
   ui.fov.value=hint.fov===null?"":String(hint.fov);
+  ui["fov-axis"].value=hint.fovAxis;
 
   const complete=[hint.heading,hint.pitch,hint.fov].every(Number.isFinite);
   ui["camera-sync-status"].textContent=complete
@@ -779,6 +783,7 @@ ui.load.addEventListener("click",()=>{
   ui["camera-sync-status"].textContent="Insluitmodus: Google geeft geen live camera-URL door. Handmatig kalibreren.";
   ui.viewer.classList.remove("maps-browser");
   ui["google-frame"].src=parsed.url;
+  ui["fov-axis"].value="horizontal";
   ui.viewer.classList.add("loaded");
   ui.lat.value=parsed.location ? String(parsed.location.lat) : "";
   ui.lng.value=parsed.location ? String(parsed.location.lng) : "";
@@ -826,7 +831,7 @@ ui["ahn-layer"].addEventListener("change",()=>{
     : "DTM actief: meting op maaiveld zonder gebouwen.");
   render();
 });
-for(const id of ["lat","lng","height","heading","pitch","fov"]) {
+for(const id of ["lat","lng","height","heading","pitch","fov","fov-axis"]) {
   ui[id].addEventListener("change",()=>{
     if(state.mode==="measure")switchMode("navigate");
     resetMeasurements("Camerakalibratie gewijzigd: oude meetpunten gewist.");

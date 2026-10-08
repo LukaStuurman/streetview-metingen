@@ -1,0 +1,54 @@
+name: Publish Windows v0.6.2 projection accuracy fix
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-windows-v0.6.2.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Electron
+        run: npm install --no-audit --no-fund
+      - name: Unit tests including URL-to-ground regression
+        run: npm test
+      - name: Syntax and version verification
+        run: |
+          node --check desktop-google/app.mjs
+          node --check desktop-google/measurement-helpers.mjs
+          node --check src/geometry.mjs
+          node -e "if(require('./package.json').version !== '0.6.2') process.exit(1)"
+      - name: Live AHN DTM/DSM check
+        run: node scripts/smoke-ahn.mjs
+        continue-on-error: true
+      - name: Build Windows portable and NSIS installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist:win
+      - name: Archive Windows executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: streetview-metingen-windows-v0.6.2
+          path: dist/*.exe
+          if-no-files-found: error
+      - name: Publish v0.6.2 GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          portable="dist/Streetview Metingen 0.6.2.exe"
+          installer="dist/Streetview Metingen Setup 0.6.2.exe"
+          test -s "$portable" && test -s "$installer"
+          sha256sum "$portable" "$installer"
+          gh release create v0.6.2 "$portable" "$installer" \
+            --target "$GITHUB_SHA" \
+            --title "Streetview Metingen v0.6.2 — correctie beeldhoek" \
+            --notes-file RELEASE_NOTES_v0.6.2.md \
+            --latest
