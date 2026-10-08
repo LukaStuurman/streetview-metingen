@@ -1,0 +1,50 @@
+name: Publish Windows AHN hotfix v0.3.1
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-windows-v0.3.1.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Electron
+        run: npm install --no-audit --no-fund
+      - name: Run AHN and browser fetch regression tests
+        run: npm test
+      - name: Verify live AHN data and browser CORS
+        run: node scripts/smoke-ahn.mjs
+        continue-on-error: true
+      - name: Build portable Windows app and installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist:win
+      - name: Archive Windows executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: streetview-metingen-windows-v0.3.1
+          path: dist/*.exe
+          if-no-files-found: error
+      - name: Publish v0.3.1 release with installer and portable EXE
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -d '' executables < <(find dist -maxdepth 1 -type f -name '*.exe' -print0)
+          if [ "${#executables[@]}" -ne 2 ]; then
+            echo "Expected exactly two EXEs; found ${#executables[@]}" >&2
+            exit 1
+          fi
+          for file in "${executables[@]}"; do sha256sum "$file"; done
+          gh release create v0.3.1 "${executables[@]}" \
+            --target "$GITHUB_SHA" \
+            --title "Streetview Metingen v0.3.1 — AHN-fix Windows" \
+            --notes-file RELEASE_NOTES_v0.3.1.md \
+            --latest
