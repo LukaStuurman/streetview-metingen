@@ -24,6 +24,15 @@
 - Bij scherpe dakranden maakt de berekening een interpolatie tussen rasterpunten en kijkstralen. Daardoor kan een snijpunt een fictief tussenoppervlak zijn; controleer alle hoogtes en verwacht geen centimeter- of decimeterprecisie.
 - DTM-referentiehoogte bij de camera plus **handmatig ingestelde camerahoogte** blijft nodig, ook bij de DSM-modus.
 
+## Problemen met Google-cookiepagina
+
+In **v0.4.0** konden de knoppen **Alles accepteren** en **Alles weigeren** vastlopen: de interne browser verbood navigatie naar `consent.google.com` of blokkeerde de opslagtoestemming. Dit is in **v0.4.1** hersteld.
+
+- Open **Google Maps in dit programma**. Kies op Google's eigen cookiepagina zelf **Alles accepteren** of **Alles weigeren**. De app kiest **niet automatisch** en verandert je voorkeur niet.
+- De keuze wordt opgeslagen binnen de permanente Google Maps-browsergegevens van dit programma. Als Maps alsnog op het toestemmingsscherm blijft, klik **Google Maps opnieuw laden**.
+- Google kan soms een apart toestemmingsvenster openen. Alleen een officieel Google-toestemmingsadres is in deze aparte browser toegestaan; dezelfde cookiesessie wordt gebruikt.
+- Gebruik bij een niet-werkende ingebouwde browser de bestaande alternatieve Google Maps-insluitlink. De app blijft afhankelijk van veranderingen aan Google's website en cookiesystemen.
+
 ## Grenzen van de Google-integratie
 
 De app toont de gewone publieke **Google Maps-website** in een geïsoleerde Electron-webweergave. Dit is **geen officiële Maps JavaScript/Street View API-integratie**. De webweergave is een experimentele desktopfunctie; Google kan delen ervan blokkeren of wijzigen. De app gebruikt geen interne Google Maps-API, onderschept geen beelden en slaat geen panoramategels op.
