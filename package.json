@@ -1,9 +1,9 @@
 {
   "name": "streetview-metingen",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
-  "description": "Techbase Street View meetapp met AHN DTM/DSM, lokale XY en RD (EPSG:28992) coördinaten",
+  "description": "Techbase Street View meten met multi-panorama triangulatie, AHN en RD-coordinaten",
   "scripts": {
     "test": "node --test",
     "desktop": "electron .",
@@ -28,6 +28,7 @@
       "src/ahn.mjs",
       "src/geometry.mjs",
       "src/rd.mjs",
+      "src/triangulation.mjs",
       "package.json"
     ],
     "win": {
