@@ -19,6 +19,17 @@ export function offsetLocation(location, east, north) {
   return { lat, lng };
 }
 
+/** Inverse of offsetLocation, using the same local metre scales. */
+export function localOffsetFromLocation(origin, position) {
+  if(![origin?.lat,origin?.lng,position?.lat,position?.lng].every(Number.isFinite))return null;
+  const cosLat=Math.cos(origin.lat*RAD);
+  if(Math.abs(cosLat)<1e-7)return null;
+  return {
+    e:(position.lng-origin.lng)*(111412.84*cosLat-93.5*Math.cos(3*origin.lat*RAD)),
+    n:(position.lat-origin.lat)*(111132.92-559.82*Math.cos(2*origin.lat*RAD))
+  };
+}
+
 export function mercatorMeters(lat, lng) {
   if (![lat, lng].every(Number.isFinite) || Math.abs(lat) >= 85 || Math.abs(lng) > 180) return null;
   return {
@@ -102,7 +113,7 @@ export async function terrainRayIntersection({
   const northUnit = ray.n / horizontal;
   const raySlope = ray.u / horizontal;
   const cameraZ = cameraBaseZ + cameraHeight;
-  let previous = { distance: 0, delta: cameraHeight };
+  let previous = { distance: 0, delta: cameraHeight, z:cameraBaseZ };
   const stops = [2, 4, 6, 8, 10, 15, 20, 30, 40, 55, 70, 90, 115, 150,
     200, 250, 300, 375, 450, 500]
     .filter(d => d <= maxDistance);
@@ -121,14 +132,39 @@ export async function terrainRayIntersection({
     };
   }
 
+  async function crossingBeforeNoData(left,missingDistance) {
+    let boundary=missingDistance;
+    for(let i=0;i<12&&boundary-left.distance>0.1;i++) {
+      const mid=await sampleAt((left.distance+boundary)/2);
+      if(mid.status==="no-data")boundary=(left.distance+boundary)/2;
+      else if(mid.status!=="ok")return {status:mid.status};
+      else if(mid.delta<=0)return {status:"ok",left,right:mid};
+      else left=mid;
+    }
+    return {status:"no-data"};
+  }
+
   for (const distance of stops) {
-    const next = await sampleAt(distance);
+    let next = await sampleAt(distance);
+    if(next.status==="no-data") {
+      // A coarse stop may overshoot a visible ground hit into a building's
+      // masked DTM cell. Search the still-valid side; NEVER bridge the gap or
+      // substitute the last known elevation for missing terrain.
+      const edge=await crossingBeforeNoData(previous,distance);
+      if(edge.status!=="ok")return {status:edge.status};
+      previous=edge.left;next=edge.right;
+    }
     if (next.status !== "ok") return { status: next.status };
     if (next.delta <= 0) {
       let left = previous, right = next;
-      // Tighten the ray/terrain intersection to roughly 0.5m along the ground.
-      for (let i = 0; i < 8 && right.distance - left.distance > 0.5; i++) {
+      // Tighten the bracket to 0.15m, without implying finer AHN resolution.
+      for (let i = 0; i < 12 && right.distance - left.distance > 0.15; i++) {
         const mid = await sampleAt((left.distance + right.distance) / 2);
+        if(mid.status==="no-data") {
+          const edge=await crossingBeforeNoData(left,(left.distance+right.distance)/2);
+          if(edge.status!=="ok")return {status:edge.status};
+          left=edge.left;right=edge.right;continue;
+        }
         if (mid.status !== "ok") return { status: mid.status };
         if (mid.delta > 0) left = mid;
         else right = mid;

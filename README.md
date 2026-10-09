@@ -1,6 +1,16 @@
 # Streetview Metingen — Windows, Google Maps + AHN DTM/DSM
 
-**Versie 0.6.2.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
+**Ontwikkelversie 0.7.0; gepubliceerde release 0.6.2.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
+
+## Luchtfotovenster en bewaarde correcties (in ontwikkeling)
+
+**Open luchtfotokaart** opent een apart Windows-venster met de actuele PDOK RGB-luchtfoto. Meetpunten, lijnen en RD-coördinaten verschijnen direct. Kies **Locatie corrigeren** en sleep een herkenbaar punt naar zijn plek, of klik het punt en vul bekende RD X/Y in. **Bewaar locatie en kalibratie** bewaart de correctie lokaal voor volgende metingen vanuit hetzelfde panorama. Met **Wis correcties voor dit standpunt** herstel je de oorspronkelijke berekening.
+
+De app leert de verschuiving uit je referentiepunten. Vanaf vier verspreide referenties kan hij ook schaal en richting leren, maar alleen als hij daarmee referentiepunten beter voorspelt die bij hun eigen voorspelling buiten de berekening zijn gehouden. Andere panorama's, hoogtemethodes, camerahoogtes en beeldhoek-assen gebruiken een eigen kalibratie. Er is geen vaste landelijke correctie. Gecorrigeerde X/Y en GPS blijven onderling consistent; Z blijft van de oorspronkelijke positie en de CSV bewaart de oorspronkelijke coördinaten.
+
+Een bekende opname kun je openen door een volledige Street View-link uit de adresbalk te plakken. Bij officiële links met alleen een gevraagde locatie moet de echte panoramacamera eerst bekend zijn voordat je meet: het dichtstbijzijnde Google-standpunt kan verderop liggen.
+
+De [ontwikkelcontrole van kaartkalibratie](docs/calibration-validation.md) beschrijft de resultaten en resterende praktijktests. Deze ontwikkeling is nog niet uitgebracht.
 
 ## Herstel beeldhoek en vensterformaat (v0.6.2)
 

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://service.pdok.nl; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Streetview Metingen — PDOK luchtfoto</title>
+  <link rel="stylesheet" href="./aerial-map.css">
+  <script type="module" src="./aerial-map.mjs"></script>
+</head>
+<body>
+  <header>
+    <div><span class="eyebrow">STREETVIEW METINGEN</span><h1>Luchtfotokaart <span>PDOK RGB</span></h1></div>
+    <div class="toolbar">
+      <button id="zoom-in" aria-label="Inzoomen">+</button>
+      <button id="zoom-out" aria-label="Uitzoomen">−</button>
+      <button id="fit">Alle punten in beeld</button>
+      <button id="retry" aria-label="Luchtfoto opnieuw laden">Opnieuw laden</button>
+      <label><input id="follow" type="checkbox" checked>Volg metingen</label>
+      <label><input id="correct-mode" type="checkbox">Locatie corrigeren</label>
+    </div>
+  </header>
+  <div class="layout">
+    <main id="map-area">
+      <canvas id="map" aria-label="Actuele PDOK RGB-luchtfoto met Street View-meetpunten en lijnen" tabindex="0"></canvas>
+      <p class="map-hint">Sleep om te verschuiven · scroll om te zoomen · klik een meetpunt voor coördinaten</p>
+      <p id="image-status" role="status" aria-live="polite">Luchtfoto laden…</p>
+      <div class="map-footer"><span id="scale"></span><span id="cursor">RD New · EPSG:28992</span></div>
+      <div class="attribution">Luchtfoto: <a href="https://www.pdok.nl/introductie/-/article/pdok-luchtfoto-rgb-open-" target="_blank" rel="noopener">Samenwerkingsverband Beeldmateriaal / PDOK</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></div>
+    </main>
+    <aside>
+      <h2>Meetpunten <span id="count">0</span></h2>
+      <p class="intro">Dezelfde berekende locaties als in Street View. Nieuwe punten, lijnen en correcties verschijnen direct.</p>
+      <section id="correction-editor" hidden>
+        <h2 id="selected-title">Punt corrigeren</h2>
+        <label>RD X (m)<input id="correct-x" type="number" step="0.01"></label>
+        <label>RD Y (m)<input id="correct-y" type="number" step="0.01"></label>
+        <button id="save-correction">Bewaar locatie en kalibratie</button>
+      </section>
+      <p id="calibration-info" class="intro">Nog geen kalibratie voor dit standpunt.</p>
+      <p id="correction-status" role="status" aria-live="polite" class="intro">Kies Locatie corrigeren en sleep een meetpunt naar zijn herkenbare plek op de luchtfoto. Of klik een punt en vul RD X/Y in.</p>
+      <button id="reset-calibration" disabled>Wis correcties voor dit standpunt</button>
+      <div id="point-list" aria-live="polite"></div>
+      <p class="note">Kalibratie geldt alleen voor hetzelfde Street View-standpunt en blijft bewaard na afsluiten. Corrigeer herkenbare vaste objecten. X/Y wordt aangepast; Z blijft bij de oorspronkelijke berekening. De luchtfoto en Street View kunnen van verschillende opnamedata zijn.</p>
+    </aside>
+  </div>
+</body>
+</html>

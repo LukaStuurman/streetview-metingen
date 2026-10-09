@@ -1,21 +1,23 @@
 import {
   AHNClient, AHN_LAYER, AHN_SURFACE_LAYER, offsetLocation,
-  terrainRayIntersection, horizontalDistance, spatialDistance
+  terrainRayIntersection, horizontalDistance
 } from "../src/ahn.mjs";
 import {
   groundFromRay, pixelFromWorld, rayFromPixel,
   pointAtHorizontalDistance, rayDepressionDegrees, MAX_GROUND_DISTANCE_M
 } from "../src/geometry.mjs";
-import { pointCoordinates } from "../src/rd.mjs";
+import { pointCoordinates as rawPointCoordinates } from "../src/rd.mjs";
 import { triangulatePanoramas } from "../src/triangulation.mjs";
+import { mapSnapshot, MAP_COLORS } from "./aerial-map-model.mjs";
+import { calibrationScope, fitCalibration, correctedCoordinates, addReference } from "./map-calibration.mjs";
 import {
-  parseEmbedHtml, inspectGoogleMapsViewUrl, cameraPoseChanged, viewFromFields
+  parseEmbedHtml, inspectGoogleMapsViewUrl, cameraPoseChanged, viewFromFields, streetViewLink
 } from "./measurement-helpers.mjs";
 
 const $ = id => document.getElementById(id);
 const ui = Object.fromEntries([
   "embed","open-maps","load","maps-browser","reload-maps","check-camera-url",
-  "maps-url","maps-url-reason","use-iframe","google-browser",
+  "maps-url","maps-url-reason","use-iframe","google-browser","open-aerial-map","map-calibration-status","streetview-link","open-streetview-link",
   "lat","lng","heading","pitch","fov","fov-axis","height","camera-sync-status",
   "ahn","ahn-layer","ahn-status","refresh-ahn","point-results",
   "tri-start","tri-stop","tri-undo","tri-export","tri-results","tri-status",
@@ -24,9 +26,14 @@ const ui = Object.fromEntries([
 ].map(id => [id, $(id)]));
 const ctx = ui.overlay.getContext("2d");
 const AHN = new AHNClient();
-const colorSet = ["#f28c28","#d83c36","#ffb451","#ed695c"];
+const colorSet = MAP_COLORS;
+let lastMapSnapshot = "";
+const calibrations = new Map();
+let calibrationSaving = false;
+let calibrationFeedback = "";
+let lastCalibrationContext = null;
 const state = {
-  loaded:false, mode:"navigate", useAHN:true,
+  loaded:false, mode:"navigate", useAHN:true, cameraPositionConfirmed:true,
   surfaceLayer:AHN_LAYER, display:"embed",
   baseZ:null, lines:[[]], pending:null, epoch:0, terrainEpoch:0,
   lastGoogleViewUrl:null, lastGooglePose:null, canRender:false,
@@ -39,6 +46,7 @@ function notice(text, error=false) {
 }
 function n(id) { return Number(ui[id].value); }
 function validCalibration() {
+  if(!state.cameraPositionConfirmed)return false;
   const lat=n("lat"),lng=n("lng"),h=n("height");
   const fov=n("fov"),pitch=n("pitch"),heading=n("heading");
   return ["lat","lng","heading","pitch","fov","height"].every(id=>ui[id].value.trim()!=="") &&
@@ -51,6 +59,21 @@ function validCalibration() {
     Number.isFinite(heading)&&heading>=0&&heading<=360;
 }
 function cameraLocation() {return {lat:n("lat"),lng:n("lng")};}
+function currentCalibrationKey() {
+  return state.loaded && validCalibration()
+    ? calibrationScope(state.lastGoogleViewUrl,cameraLocation(),
+      state.useAHN?state.surfaceLayer:"flat",n("height"),ui["fov-axis"].value) : null;
+}
+function pointCoordinates(point,origin) {
+  return correctedCoordinates(rawPointCoordinates(point,origin,offsetLocation),
+    calibrations.get(currentCalibrationKey()),point.mapRD,origin);
+}
+function measuredDistances(a,b) {
+  const ca=pointCoordinates(a,cameraLocation()),cb=pointCoordinates(b,cameraLocation());
+  const plan=ca?.rd&&cb?.rd&&(ca.correction||cb.correction)
+    ? Math.hypot(cb.rd.x-ca.rd.x,cb.rd.y-ca.rd.y) : horizontalDistance(a,b);
+  return {plan,three:Math.hypot(plan,b.z-a.z)};
+}
 function view() {
   const rectangle=ui.overlay.getBoundingClientRect();
   return viewFromFields({
@@ -73,6 +96,7 @@ function resetMeasurements(reason) {
   if(reason)notice(reason);
 }
 function renderTriangulation() {
+  synchronizeAerialMap();
   const tri=state.triangulation;
   const dest=ui["tri-results"];
   dest.replaceChildren();
@@ -134,6 +158,56 @@ function renderTriangulation() {
     list.append(item);
   });
   dest.append(list);
+}
+function synchronizeAerialMap(force = false) {
+  if (!window.aerialMap) return;
+  const snapshot = mapSnapshot({ lines: state.lines,
+    origin: state.loaded && validCalibration() ? cameraLocation() : null,
+    heading: n("heading"), triangulation: state.triangulation.result,
+    coordinates:pointCoordinates });
+  snapshot.contextKey=currentCalibrationKey();
+  if(snapshot.contextKey!==lastCalibrationContext) {
+    calibrationFeedback="";lastCalibrationContext=snapshot.contextKey;
+  }
+  const record=calibrations.get(snapshot.contextKey),model=fitCalibration(record?.references);
+  snapshot.calibration={count:record?.references.length || 0,kind:model?.kind || null,saving:calibrationSaving,feedback:calibrationFeedback};
+  ui["map-calibration-status"].textContent=record
+    ? `Kaartkalibratie actief voor dit standpunt: ${record.references.length} referentiepunt${record.references.length===1?"":"en"}.`
+    : "Verplaats meetpunten in de luchtfotokaart om dit standpunt te kalibreren.";
+  const serialized = JSON.stringify(snapshot);
+  if (force || serialized !== lastMapSnapshot) {
+    lastMapSnapshot = serialized;
+    window.aerialMap.publish(snapshot);
+  }
+}
+async function correctFromAerialMap(correction) {
+  const key=currentCalibrationKey();
+  if(!key||correction.key!==key||calibrationSaving)return;
+  let vertex=null,record=null;
+  if(!correction.reset) {
+    const match=/^P(\d+)\.(\d+)$/.exec(correction.id || "");
+    vertex=match&&state.lines[Number(match[1])-1]?.[Number(match[2])-1];
+    if(!vertex||!Number.isFinite(correction.x)||!Number.isFinite(correction.y))return;
+    const raw=rawPointCoordinates(vertex.point,cameraLocation(),offsetLocation);
+    if(!raw?.rd)return;
+    record=addReference(calibrations.get(key),key,raw.rd,{x:correction.x,y:correction.y});
+  }
+  const epoch=state.epoch;
+  calibrationFeedback="";calibrationSaving=true; synchronizeAerialMap();
+  try {
+    await window.aerialMap.saveCalibration(record,key);
+    if(record)calibrations.set(key,record);else calibrations.delete(key);
+    // The save may finish after navigation. Persist the calibration, but never
+    // apply a stale correction to a different current panorama's points.
+    if(currentCalibrationKey()===key&&state.epoch===epoch) {
+      if(correction.reset)for(const line of state.lines)for(const item of line)delete item.point.mapRD;
+      else vertex.point.mapRD={x:correction.x,y:correction.y};
+      calibrationFeedback=correction.reset?"Kaartcorrecties voor dit standpunt gewist.":
+        "Kaartcorrectie opgeslagen. Volgende meetpunten vanuit dit standpunt gebruiken de kalibratie.";
+      notice(calibrationFeedback);
+    }
+  } catch(error) { calibrationFeedback="Kaartcorrectie niet opgeslagen: "+error.message;notice(calibrationFeedback,true); }
+  finally {calibrationSaving=false;render();}
 }
 function solveTriangulation(){
   state.triangulation.result=triangulatePanoramas(
@@ -216,8 +290,9 @@ function summary() {
     if(!first&&line[0])first=line[0].point;
     if(line.length)last=line[line.length-1].point;
     for(let i=1;i<line.length;i++) {
-      plan+=horizontalDistance(line[i-1].point,line[i].point);
-      three+=spatialDistance(line[i-1].point,line[i].point);
+      const distance=measuredDistances(line[i-1].point,line[i].point);
+      plan+=distance.plan;
+      three+=distance.three;
     }
   }
   rows.push(["Punten",count],["Segmenten",segments],
@@ -273,13 +348,14 @@ function summary() {
         ["Y lokaal",format(coordinates.localY,1)+" m"],
         ["RD X",coordinates.rd?format(coordinates.rd.x,2)+" m":"Buiten RD-gebied"],
         ["RD Y",coordinates.rd?format(coordinates.rd.y,2)+" m":"Buiten RD-gebied"],
-        [vertex.rangeManual?"Z kijkstraal (NAP)":"Z NAP",
+        [coordinates.correction?"Z oorspronkelijke positie":vertex.rangeManual?"Z kijkstraal (NAP)":"Z NAP",
           state.useAHN?format(vertex.z,2)+" m":"—"],
         ["Stelsel","RD New · EPSG:28992"],
         ["Afstand tot camera",format(Math.hypot(vertex.e,vertex.n),1)+" m"],
         ["Bepaling",vertex.rangeManual?"Zelf opgegeven afstand":
           state.useAHN?"Eerste AHN-snijpunt":"Vlakke grond"]
       ];
+      if(coordinates.correction)fields.push(["Kaartcorrectie",vertex.mapRD?"Handmatig verplaatst":"Bewaarde kalibratie"]);
       for(const [label,value] of fields) {
         const cell=document.createElement("div");
         cell.className="coord";
@@ -295,6 +371,7 @@ function summary() {
       detail.textContent="Lat "+coordinates.lat.toFixed(8)+
         " / lon "+coordinates.lng.toFixed(8)+
         (nearHorizon?" · Dicht bij horizon: zeer onzeker":"")+
+        (coordinates.correction?" · X/Y kaartgecorrigeerd; Z niet herberekend":"")+
         " · Indicatieve coördinaten";
       card.append(heading,grid,detail);
       const correction=document.createElement("div");
@@ -374,8 +451,7 @@ function render() {
     for(let i=1;i<projected.length;i++) {
       const a=projected[i-1],b=projected[i];if(!a||!b)continue;
       ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-      const pl=horizontalDistance(vertices[i-1].point,vertices[i].point);
-      const three=spatialDistance(vertices[i-1].point,vertices[i].point);
+      const {plan:pl,three}=measuredDistances(vertices[i-1].point,vertices[i].point);
       const label=state.useAHN
         ? format(pl)+" m • 3D "+format(three)+" m" : format(pl)+" m";
       drawTag(label,(a.x+b.x)/2,(a.y+b.y)/2-13,color,rect);
@@ -584,7 +660,8 @@ function exportCsv() {
     "AHN_model","maaiveld_DTM_NAP_m","DSM_min_DTM_m",
     "lokaal_X_meter","lokaal_Y_meter","RD_X_meter","RD_Y_meter","RD_EPSG",
     "afstand_camera_m","diepte_methode","AHN_hoogteverschil_m",
-    "hoogtebron"].join(";")];
+    "hoogtebron","kaartcorrectie","RD_X_origineel","RD_Y_origineel","kaartkalibratie_standpunt",
+    "lokaal_X_origineel","lokaal_Y_origineel"].join(";")];
   const origin=cameraLocation();
   for(let line=0;line<state.lines.length;line++){
     for(let i=0;i<state.lines[line].length;i++){
@@ -605,7 +682,10 @@ function exportCsv() {
         p.rangeManual?"handmatige_afstand":
           state.useAHN?"eerste_AHN_snijding":"vlak_maaiveld",
         Number.isFinite(p.ahnGap)?p.ahnGap.toFixed(2):"",
-        !state.useAHN?"geen_NAP":p.rangeManual?"kijkstraal_NAP_niet_AHN":"AHN"
+        !state.useAHN?"geen_NAP":coords.correction?"oorspronkelijke_posities_Z_niet_herberekend":p.rangeManual?"kijkstraal_NAP_niet_AHN":"AHN",
+        coords.correction || "",(coords.rawRD || coords.rd)?.x.toFixed(2) || "",
+        (coords.rawRD || coords.rd)?.y.toFixed(2) || "",coords.correction?currentCalibrationKey():"",
+        (coords.rawLocalX ?? coords.localX).toFixed(2),(coords.rawLocalY ?? coords.localY).toFixed(2)
         ].join(";"));
     }
   }
@@ -625,7 +705,8 @@ function exportCsv() {
  * Street View API. No tile interception, internal Google endpoints or scraping.
  * An ordinary Google website may still reject embedded browsers on some machines.
  */
-function showBrowser() {
+function showBrowser(initialUrl) {
+  state.cameraPositionConfirmed=true;
   if(state.mode==="measure")switchMode("navigate");
   resetMeasurements("Google Maps geopend. Kies een Street View-foto in het kaartbeeld.");
   state.display="maps";
@@ -645,11 +726,13 @@ function showBrowser() {
   ui["ahn-status"].textContent="Navigeer eerst naar Street View in Google Maps.";
   ui.viewer.classList.add("loaded","maps-browser");
   const guest=ui["google-browser"];
-  if(!guest.getAttribute("src"))guest.setAttribute("src","https://www.google.com/maps");
+  if(typeof initialUrl==="string")guest.setAttribute("src",initialUrl);
+  else if(!guest.getAttribute("src"))guest.setAttribute("src","https://www.google.com/maps");
   updateTerrain();
 }
 
 function showIframe() {
+  state.cameraPositionConfirmed=true;
   if(state.mode==="measure")switchMode("navigate");
   resetMeasurements("Insluitmodus: plak de Google Maps-sharecode of laad eerder gebruikte iframe.");
   state.display="embed";
@@ -698,6 +781,8 @@ function googleUrlChanged(url) {
   // Ignore unrelated Google URL changes (query strings, page metadata).
   if(!cameraPoseChanged(state.lastGooglePose,hint))return;
   const oldPose=state.lastGooglePose;
+  const wasConfirmed=state.cameraPositionConfirmed;
+  state.cameraPositionConfirmed=inspected.kind!=="pano-action";
   state.lastGooglePose=hint;
   if(state.mode==="measure")switchMode("navigate");
   resetMeasurements();
@@ -713,11 +798,13 @@ function googleUrlChanged(url) {
   ui["camera-sync-status"].textContent=complete
     ? "Camera bijgewerkt vanuit Google Maps-URL: richting, helling en beeldhoek. Niet gegarandeerd tijdens slepen; controleer voor meten."
     : "URL geeft slechts gedeeltelijke cameragegevens. Vul ontbrekende waarden handmatig in en controleer voor meten.";
+  if(!state.cameraPositionConfirmed)ui["camera-sync-status"].textContent=
+    "Deze zoeklink geeft een gewenste locatie, niet de bevestigde camerapositie. Draai het panorama kort zodat Google de opname-URL bijwerkt, of vul de werkelijke camera-coördinaten zelf in.";
 
   const moved=!oldPose ||
     Math.abs(oldPose.lat-hint.lat)>0.0000001 ||
     Math.abs(oldPose.lng-hint.lng)>0.0000001;
-  if(moved)updateTerrain();
+  if(moved||!wasConfirmed)updateTerrain();
   else render();
 }
 
@@ -734,6 +821,10 @@ function pollGoogleCameraUrl() {
 }
 
 ui["maps-browser"].addEventListener("click",showBrowser);
+ui["open-streetview-link"].addEventListener("click",()=>{
+  try {showBrowser(streetViewLink(ui["streetview-link"].value));}
+  catch(error){notice(error.message,true);}
+});
 ui["reload-maps"].addEventListener("click",()=>{
   if(state.display!=="maps")showBrowser();
   const guest=ui["google-browser"];
@@ -797,6 +888,11 @@ ui["google-frame"].addEventListener("load",()=>{
   if(state.loaded)notice("Google-frame geopend. Controleer dat je Street View ziet, niet alleen de plattegrond.");
 });
 ui["tri-start"].addEventListener("click",beginTriangulation);
+ui["open-aerial-map"].addEventListener("click",()=>{
+  if (!window.aerialMap) return notice("Het kaartvenster is beschikbaar in de Windows-app.",true);
+  synchronizeAerialMap(true);
+  window.aerialMap.open();
+});
 ui["tri-stop"].addEventListener("click",()=>{
   state.triangulation.active=false;
   if(state.mode==="measure")switchMode("navigate");
@@ -833,6 +929,7 @@ ui["ahn-layer"].addEventListener("change",()=>{
 });
 for(const id of ["lat","lng","height","heading","pitch","fov","fov-axis"]) {
   ui[id].addEventListener("change",()=>{
+    if(["lat","lng"].includes(id))state.cameraPositionConfirmed=true;
     if(state.mode==="measure")switchMode("navigate");
     resetMeasurements("Camerakalibratie gewijzigd: oude meetpunten gewist.");
     if(["lat","lng"].includes(id))updateTerrain();
@@ -845,6 +942,13 @@ ui["refresh-ahn"].addEventListener("click",()=>{
   updateTerrain();
 });
 new ResizeObserver(render).observe(ui.viewer);
+if(window.aerialMap) {
+  window.aerialMap.onCorrection(correctFromAerialMap);
+  window.aerialMap.loadCalibrations().then(records=>{
+    for(const record of records)calibrations.set(record.key,record);
+    render();
+  }).catch(error=>notice("Bewaarde kaartkalibraties niet geladen: "+error.message,true));
+}
 summary();
 // Start directly in Google Maps. Copying an iframe is an optional fallback.
 showBrowser();

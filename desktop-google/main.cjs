@@ -1,7 +1,9 @@
 "use strict";
-const { app, BrowserWindow, protocol, net, shell, session } = require("electron");
+const { app, BrowserWindow, protocol, net, shell, session, ipcMain } = require("electron");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const { attachAerialWindow } = require("./aerial-window.cjs");
+const { CalibrationStore } = require("./calibration-store.cjs");
 const {
   isGoogleConsentUrl, isAllowedGoogleNavigation, isGoogleStorageOrigin
 } = require("./google-navigation.cjs");
@@ -47,6 +49,7 @@ async function launch() {
     backgroundColor: "#0b1823", autoHideMenuBar: true,
     title: "Streetview Metingen — Google zonder Cloud-account",
     webPreferences: {
+      preload: path.join(__dirname, "aerial-preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
@@ -55,6 +58,8 @@ async function launch() {
       webviewTag: true
     }
   });
+  attachAerialWindow(main, { BrowserWindow, ipcMain, shell,
+    calibrationStore:new CalibrationStore(path.join(app.getPath("userData"),"map-calibration.json")) });
   app.on("web-contents-created", (_event, guestContents) => {
     if (guestContents.getType() !== "webview") return;
     // Consent.google.com is a legitimate Google redirect. The old /maps
