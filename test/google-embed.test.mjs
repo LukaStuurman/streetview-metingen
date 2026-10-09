@@ -1,10 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseEmbedHtml,parseGoogleMapsViewUrl,inspectGoogleMapsViewUrl,cameraPoseChanged,viewFromFields } from "../desktop-google/measurement-helpers.mjs";
+import { parseEmbedHtml,parseGoogleMapsViewUrl,inspectGoogleMapsViewUrl,cameraPoseChanged,viewFromFields,streetViewLink } from "../desktop-google/measurement-helpers.mjs";
 import { groundFromRay, pixelFromWorld, rayFromPixel } from "../src/geometry.mjs";
 import { terrainRayIntersection } from "../src/ahn.mjs";
 
 const sample='https://www.google.com/maps/embed?pb=!4v10!6m8!1m7!1sgooglePanoId!2m2!1d51.4416!2d5.4697!3f110.5!4f0!5f0.78';
+test("direct Street View link opens only a complete trusted camera URL",()=>{
+  const url="https://www.google.com/maps/@51.44,5.47,3a,75y,120h,90t/data=!1simage";
+  assert.equal(streetViewLink(" "+url+" "),url);
+  const action="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=52,5&heading=120&pitch=-10&fov=75";
+  assert.equal(streetViewLink(action),action);
+  for(const invalid of ["https://maps.app.goo.gl/example","https://www.google.com/maps","https://evil.com/maps/@51,5,3a",url.replace("https://","https://name:secret@"),"javascript:alert(1)"])
+    assert.throws(()=>streetViewLink(invalid));
+});
 test("parses only a direct Google-generated embed link",()=>{
   assert.deepEqual(parseEmbedHtml(sample).location,{lat:51.4416,lng:5.4697});
   assert.equal(parseEmbedHtml(sample).heading,110.5);

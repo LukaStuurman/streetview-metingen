@@ -1,0 +1,58 @@
+name: Publish Windows v0.7.0 aerial map and calibration
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-windows-v0.7.0.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Electron
+        run: npm install --no-audit --no-fund
+      - name: Run measurement and calibration tests
+        run: npm test
+      - name: Syntax and version verification
+        run: |
+          node --check desktop-google/app.mjs
+          node --check desktop-google/map-calibration.mjs
+          node --check desktop-google/aerial-map.mjs
+          node --check desktop-google/aerial-window.cjs
+          node --check src/ahn.mjs
+          node -e "if(require('./package.json').version !== '0.7.0') process.exit(1)"
+      - name: Live AHN DTM/DSM check
+        run: node scripts/smoke-ahn.mjs
+        continue-on-error: true
+      - name: Build Windows portable and NSIS installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist:win
+      - name: Verify packaged calibration sources
+        run: node scripts/check-calibration-build.mjs dist/win-unpacked/resources/app.asar
+      - name: Archive Windows executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: streetview-metingen-windows-v0.7.0
+          path: dist/*.exe
+          if-no-files-found: error
+      - name: Publish v0.7.0 GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          portable="dist/Streetview Metingen 0.7.0.exe"
+          installer="dist/Streetview Metingen Setup 0.7.0.exe"
+          test -s "$portable" && test -s "$installer"
+          sha256sum "$portable" "$installer"
+          gh release create v0.7.0 "$portable" "$installer" \
+            --target "$GITHUB_SHA" \
+            --title "Streetview Metingen v0.7.0 — luchtfotokaart en kalibratie" \
+            --notes-file RELEASE_NOTES_v0.7.0.md \
+            --latest

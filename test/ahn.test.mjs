@@ -212,6 +212,16 @@ test("no-data, out of range and abort never manufacture a height", async () => {
   })).status, "aborted");
 });
 
+test("a valid ground intersection before a masked building is recovered without inventing terrain",async()=>{
+  const metres=lat=>(lat-origin.lat)*(111132.92-559.82*Math.cos(2*origin.lat*Math.PI/180));
+  const surface=async lat=>metres(lat)>13?null:3;
+  const result=await terrainRayIntersection({ray,origin,cameraBaseZ:3,cameraHeight:2.5,sampleHeight:surface});
+  assert.equal(result.status,"ok");near(result.distance,12.5,.01);near(result.point.z,3,.01);
+  // The same ray would hit ground only AFTER this gap, which must stay rejected.
+  const gap=async lat=>metres(lat)>11&&metres(lat)<14?null:3;
+  assert.equal((await terrainRayIntersection({ray,origin,cameraBaseZ:3,cameraHeight:2.5,sampleHeight:gap})).status,"no-data");
+});
+
 test("terrain intersection point reprojects to the same pixel", async () => {
   const view = { width: 800, height: 600, heading: 0, pitch: -20, zoom: 1 };
   const measuredRay = rayFromPixel(420, 310, view);

@@ -16,11 +16,17 @@
       <div class="eyebrow">TECHBASE · STREET VIEW METINGEN</div>
       <h1>Streetview <span>Metingen</span></h1>
       <p>Origineel Google Street View, AHN-hoogtes en indicatieve X/Y-metingen. Geen Google Cloud-account of API-sleutel nodig.</p>
+      <button id="open-aerial-map" type="button" class="primary full">Open luchtfotokaart ↗</button>
+      <p class="muted">Apart venster met de actuele PDOK RGB-luchtfoto. Je meetpunten, lijnen en coördinaten verschijnen er direct.</p>
+      <p id="map-calibration-status" class="status" aria-live="polite">Verplaats meetpunten in de luchtfotokaart om dit standpunt te kalibreren.</p>
     </header>
     <section>
       <h2><span>01</span> Google Street View openen</h2>
       <button id="maps-browser" class="primary full" type="button">Open Google Maps in dit programma</button>
       <button id="reload-maps" class="secondary full" type="button">Google Maps opnieuw laden</button>
+      <label for="streetview-link">Of plak een volledige Street View-link</label>
+      <textarea id="streetview-link" rows="2" placeholder="https://www.google.com/maps/@…"></textarea>
+      <button id="open-streetview-link" class="secondary full" type="button">Open deze Street View-link</button>
       <details class="maps-diagnostics">
         <summary>Diagnose Street View-camerastand</summary>
         <p class="muted">Als de camera niet wordt herkend, staat hieronder de echte URL die de ingebouwde Google Maps-browser aan de app doorgeeft. Klik in het veld, druk Ctrl+A en Ctrl+C, en stuur de URL mee bij een foutmelding. Dit is geen camerageometrie-API.</p>

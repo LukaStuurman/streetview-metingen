@@ -111,6 +111,16 @@ export function parseGoogleMapsViewUrl(urlText) {
   return inspectGoogleMapsViewUrl(urlText).pose;
 }
 
+/** User-pasted full Street View link, opened as an ordinary Maps webpage. */
+export function streetViewLink(text) {
+  let url;
+  try {url=new URL(text.trim());}catch{throw new Error("Plak een volledige Google Maps Street View-link.");}
+  const inspection=inspectGoogleMapsViewUrl(url.href);
+  if(url.username||url.password||!inspection.pose)
+    throw new Error("Gebruik de volledige Street View-URL uit de adresbalk, met camerapositie; geen verkorte deel-link.");
+  return url.href;
+}
+
 /** Track changes to actual encoded camera pose, not unrelated query strings. */
 export function cameraPoseChanged(previous, next, epsilon = 0.00001) {
   if (!previous || !next) return true;
