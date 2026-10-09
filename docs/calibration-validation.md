@@ -23,4 +23,4 @@ Amersfoort is getest met vlak maaiveld omdat AHN DTM bij de gekozen gevelvoeten 
 
 Automatische controles omvatten een bekende schaal/rotatie met een ongebruikt vijfde punt, een foutieve verre referentie die een misleidende schaal zou veroorzaken, en overeenkomende lokale/GPS/RD-uitvoer op vier Nederlandse locaties. Die vier coördinaatcontroles zijn synthetisch, geen Street Smart-veldtest.
 
-Nog nodig voor de landelijke praktijktest en release: meer punten en locaties in de echte Windows-app naast Street Smart, herstart en CSV in de uiteindelijke executable, en daarna publiceren op main met een Windows-release.
+De gebruiker heeft op 9 oktober 2026 gevraagd deze wijzigingen nu op main te zetten en een Windows-release te maken. Resterend vervolgwerk voor de landelijke praktijktest: meer punten en locaties in de echte Windows-app naast Street Smart, en herstart en CSV in de uiteindelijke executable. De release vormt geen afronding van die landelijke nauwkeurigheidsvalidatie.

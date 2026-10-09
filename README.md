@@ -1,8 +1,8 @@
 # Streetview Metingen — Windows, Google Maps + AHN DTM/DSM
 
-**Ontwikkelversie 0.7.0; gepubliceerde release 0.6.2.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
+**Versie 0.7.0.** Windows-desktopapp om originele Google Maps Street View-beelden te bekijken en indicatieve afstanden en hoogtes te schatten met de publieke PDOK/AHN-diensten. Geen Google Cloud-account, Google Maps API-sleutel of eigen Google-beeldopslag nodig.
 
-## Luchtfotovenster en bewaarde correcties (in ontwikkeling)
+## Luchtfotovenster en bewaarde correcties (v0.7.0)
 
 **Open luchtfotokaart** opent een apart Windows-venster met de actuele PDOK RGB-luchtfoto. Meetpunten, lijnen en RD-coördinaten verschijnen direct. Kies **Locatie corrigeren** en sleep een herkenbaar punt naar zijn plek, of klik het punt en vul bekende RD X/Y in. **Bewaar locatie en kalibratie** bewaart de correctie lokaal voor volgende metingen vanuit hetzelfde panorama. Met **Wis correcties voor dit standpunt** herstel je de oorspronkelijke berekening.
 
@@ -10,7 +10,7 @@ De app leert de verschuiving uit je referentiepunten. Vanaf vier verspreide refe
 
 Een bekende opname kun je openen door een volledige Street View-link uit de adresbalk te plakken. Bij officiële links met alleen een gevraagde locatie moet de echte panoramacamera eerst bekend zijn voordat je meet: het dichtstbijzijnde Google-standpunt kan verderop liggen.
 
-De [ontwikkelcontrole van kaartkalibratie](docs/calibration-validation.md) beschrijft de resultaten en resterende praktijktests. Deze ontwikkeling is nog niet uitgebracht.
+De [controle van kaartkalibratie](docs/calibration-validation.md) beschrijft de resultaten en resterende praktijktests. Er is nog geen landelijke nauwkeurigheidsvalidatie.
 
 ## Herstel beeldhoek en vensterformaat (v0.6.2)
 
